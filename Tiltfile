@@ -14,11 +14,16 @@ local('docker network create rollup-network || true')
 # Generate JWT secret for Reth (before it starts)
 local_resource('generate-jwt-secret',
     '''
-    echo "🔐 Generating JWT secret for Reth..."
+    echo "🔐 Checking for existing JWT secret..."
     docker run --rm -v jwt-tokens:/shared alpine:latest sh -c "
-    apk add --no-cache openssl &&
-    openssl rand -hex 32 > /shared/reth-jwt-secret.txt &&
-    echo 'JWT secret generated'
+    if [ -f /shared/reth-jwt-secret.txt ]; then
+        echo 'Using existing JWT secret'
+    else
+        echo 'Generating new JWT secret for Reth...'
+        apk add --no-cache openssl &&
+        openssl rand -hex 32 > /shared/reth-jwt-secret.txt &&
+        echo 'JWT secret generated'
+    fi
     "
     ''',
     labels=['init']
@@ -85,10 +90,12 @@ if not cfg.get('reth-only'):
     local_resource('rollup-ready',
         '''
         echo "🔄 Waiting for complete rollup stack..."
+        echo "Waiting 200 seconds before checking EV-Node status..."
+        sleep 200
         
         timeout 120 bash -c '
         until curl -s http://localhost:7331/status | grep -q "result"; do
-            echo "Waiting for Rollkit RPC..."
+            echo "Waiting for EV-Node RPC..."
             sleep 5
         done'
         
