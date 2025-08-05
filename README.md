@@ -47,7 +47,8 @@ tilt up
 This will start:
 - **Reth** (Execution Layer): `http://localhost:8545`
 - **Celestia** (Data Availability): `http://localhost:26658` 
-- **Rollkit** (Sequencer): `http://localhost:26657`
+- **Rollkit** (Sequencer): `http://localhost:7331`
+- **Blockscout** (Explorer): `http://localhost:80`
 
 ### 2. Access Tilt Dashboard
 Open `http://localhost:10350` to monitor all services.
@@ -62,7 +63,7 @@ curl -s http://localhost:8545 \
   | jq .
 
 # Test Rollkit
-curl -s http://localhost:26657/status | jq .
+curl -s http://localhost:7331/status | jq .
 ```
 
 ## Alternative: Reth-Only Mode
@@ -99,7 +100,7 @@ tilt down
 
 ### Common Issues
 
-1. **Port conflicts**: Ensure ports 8545, 8546, 8551, 26657, 26658 are available
+1. **Port conflicts**: Ensure ports 8545, 8546, 8551, 7331, 26658, 80, 4000 are available
 2. **Docker network errors**: Run `docker network create rollup-network` manually
 3. **Permission issues**: Ensure Docker daemon is running and accessible
 
@@ -126,6 +127,8 @@ docker volume prune
 | Reth Auth | 8551 | Engine API endpoint |
 | Reth Metrics | 9001 | Prometheus metrics |
 | Celestia RPC | 26658 | Data availability RPC |
-| Rollkit RPC | 26657 | Sequencer RPC |
+| Rollkit RPC | 7331 | Sequencer RPC |
 | Rollkit P2P | 7676 | Peer-to-peer |
 | Rollkit Metrics | 26660 | Prometheus metrics |
+| Blockscout Web | 80 | Block explorer (nginx proxy) |
+| Blockscout API | 4000 | Direct API access |
