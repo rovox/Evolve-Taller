@@ -1,6 +1,6 @@
-# EV Demo - Rollkit + Celestia + Reth Stack
+# EV Demo - EV-Node + Celestia + Reth Stack
 
-This demo runs a complete rollup development environment with Reth as the execution layer, Celestia as the data availability layer, and Rollkit as the sequencer.
+This demo runs a complete rollup development environment with Reth as the execution layer, Celestia as the data availability layer, and EV-Node as the sequencer.
 
 ## Prerequisites
 
@@ -47,7 +47,7 @@ tilt up
 This will start:
 - **Reth** (Execution Layer): `http://localhost:8545`
 - **Celestia** (Data Availability): `http://localhost:26658` 
-- **Rollkit** (Sequencer): `http://localhost:7331`
+- **EV-Node** (Sequencer): `http://localhost:7331`
 - **Blockscout** (Explorer): `http://localhost:80`
 
 ### 2. Access Tilt Dashboard
@@ -62,7 +62,7 @@ curl -s http://localhost:8545 \
   -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
   | jq .
 
-# Test Rollkit
+# Test EV-Node
 curl -s http://localhost:7331/status | jq .
 ```
 
@@ -115,7 +115,7 @@ docker volume prune
 
 - **Reth**: High-performance Ethereum execution client
 - **Celestia**: Modular data availability network (Mocha testnet)
-- **Rollkit**: Rollup development kit for sovereign rollups
+- **EV-Node**: Sovereign rollup sequencer built on Rollkit
 - **Docker Compose**: Service orchestration across three compose files
 
 ## Services Overview
@@ -127,8 +127,8 @@ docker volume prune
 | Reth Auth | 8551 | Engine API endpoint |
 | Reth Metrics | 9001 | Prometheus metrics |
 | Celestia RPC | 26658 | Data availability RPC |
-| Rollkit RPC | 7331 | Sequencer RPC |
-| Rollkit P2P | 7676 | Peer-to-peer |
-| Rollkit Metrics | 26660 | Prometheus metrics |
+| EV-Node RPC | 7331 | Sequencer RPC |
+| EV-Node P2P | 7676 | Peer-to-peer |
+| EV-Node Metrics | 26660 | Prometheus metrics |
 | Blockscout Web | 80 | Block explorer (nginx proxy) |
 | Blockscout API | 4000 | Direct API access |
