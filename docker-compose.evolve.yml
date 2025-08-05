@@ -1,0 +1,44 @@
+services:
+  # Rollup initialization service
+  rollup-init:
+    image: alpine:latest
+    container_name: rollup-init
+    volumes:
+      - jwt-tokens:/shared
+      - ./rollup-init.sh:/init.sh:ro
+    command: [ "sh", "/init.sh" ]
+    depends_on:
+      - reth-node
+      - celestia-node
+    networks:
+      - rollup-network
+
+  rollkit-sequencer:
+    image: ghcr.io/evstack/ev-node-evm-single:main
+    container_name: rollkit-evm-single
+    depends_on:
+      rollup-init:
+        condition: service_completed_successfully
+    ports:
+      - "7331:7331" # Rollkit RPC
+      - "7676:7676" # Rollkit P2P
+      - "26660:26660" # Rollkit Prometheus metrics
+    volumes:
+      - jwt-tokens:/shared:ro
+      - rollkit-data:/data
+      - ./rollkit-start.sh:/usr/bin/entrypoint.sh:ro
+    environment:
+      - ENV_FILE_PATH=/shared/rollkit.env
+    networks:
+      - rollup-network
+    restart: unless-stopped
+
+volumes:
+  jwt-tokens:
+    external: true
+  rollkit-data:
+
+
+networks:
+  rollup-network:
+    external: true
