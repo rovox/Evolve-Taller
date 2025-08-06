@@ -33,6 +33,30 @@ local_resource('generate-jwt-secret',
 docker_compose('./docker-compose.reth.yml')
 dc_resource('reth-node', resource_deps=['generate-jwt-secret'], labels=['reth'])
 
+# Reth readiness check - available in all modes
+local_resource('reth-ready',
+    '''
+    echo "🔧 Waiting for Reth to be ready..."
+    
+    timeout 30 bash -c '
+    until curl -s http://localhost:8545 \
+        -X POST \
+        -H "Content-Type: application/json" \
+        -d "{\"jsonrpc\":\"2.0\",\"method\":\"eth_blockNumber\",\"params\":[],\"id\":1}" \
+        | grep -q "result"; do
+        echo "Waiting for Reth RPC..."
+        sleep 5
+    done'
+    
+    echo ""
+    echo "🎉 RETH IS READY!"
+    echo "================"
+    echo "🔧 Reth RPC: http://localhost:8545"
+    ''',
+    resource_deps=['reth-node'],
+    labels=['reth']
+)
+
 # Full rollup stack is enabled by default (unless --reth-only is specified)
 if not cfg.get('reth-only'):
     print("🚀 Starting Full Rollup Stack (Reth + Celestia + Rollkit)...")
@@ -86,42 +110,27 @@ if not cfg.get('reth-only'):
     dc_resource('rollup-init', labels=['rollkit'])
     dc_resource('rollkit-sequencer', labels=['rollkit'])
     
-    # Final rollup stack validation
-    local_resource('rollup-ready',
-        '''
-        echo "🔄 Waiting for complete rollup stack..."
-        echo "Waiting 200 seconds before checking EV-Node status..."
-        sleep 200
-        
-        timeout 120 bash -c '
-        until curl -s http://localhost:7331/status | grep -q "result"; do
-            echo "Waiting for EV-Node RPC..."
-            sleep 5
-        done'
-        
-        echo ""
-        echo "🎉 COMPLETE ROLLUP STACK IS READY!"
-        echo "========================================="
-        echo "🔧 Reth (Execution): http://localhost:8545"
-        echo "🌟 Celestia (DA): http://localhost:26658"  
-        echo "🔄 Rollkit (Sequencer): http://localhost:7331"
-        echo ""
-        echo "🧪 Test the rollup:"
-        echo "curl -s http://localhost:7331/status | jq ."
-        ''',
-        resource_deps=['rollkit-sequencer'],
-        labels=['rollkit']
-    )
     
-    # Start Blockscout explorer after rollup is ready
+    # Start Blockscout explorer after reth is ready (not dependent on rollup-ready)
     local_resource('blockscout-start',
         '''
         echo "🔍 Starting Blockscout explorer..."
         cd blockscout/docker-compose
         cp ../../blockscout.env ./envs/custom-blockscout.env
+        
+        echo "🔍 Starting docker containers..."
         docker compose -f geth.yml --env-file ./envs/custom-blockscout.env up -d
+        
+        echo "🔍 Waiting for containers to initialize..."
+        sleep 10
+        
+        echo "🔍 Checking container status..."
+        docker compose -f geth.yml --env-file ./envs/custom-blockscout.env ps
+        
+        echo "🔍 Checking backend logs for any errors..."
+        timeout 10 docker compose -f geth.yml --env-file ./envs/custom-blockscout.env logs backend || echo "Backend logs check completed"
         ''',
-        resource_deps=['rollup-ready'],
+        resource_deps=['reth-ready'],
         labels=['blockscout']
     )
     
@@ -130,16 +139,29 @@ if not cfg.get('reth-only'):
         '''
         echo "🔍 Waiting for Blockscout to be ready..."
         
-        timeout 180 bash -c '
-        until curl -s http://localhost:4000 | grep -q "Blockscout"; do
-            echo "Waiting for Blockscout frontend..."
-            sleep 10
+        echo "🔍 Checking if backend is responding on port 4000..."
+        timeout 120 bash -c '
+        until curl -s http://localhost:4000/api/v1/config | grep -q "backend"; do
+            echo "Waiting for Blockscout backend API..."
+            sleep 5
         done'
+        
+        echo "🔍 Checking if nginx proxy is responding on port 80..."
+        timeout 60 bash -c '
+        until curl -s http://localhost:80 > /dev/null; do
+            echo "Waiting for Nginx proxy..."
+            sleep 5
+        done'
+        
+        echo "🔍 Final container status check..."
+        cd blockscout/docker-compose
+        docker compose -f geth.yml --env-file ./envs/custom-blockscout.env ps
         
         echo ""
         echo "🎉 BLOCKSCOUT IS READY!"
         echo "================================"
-        echo "🔍 Blockscout: http://localhost:4000"
+        echo "🔍 Blockscout Frontend: http://localhost:80"
+        echo "🔍 Blockscout Backend API: http://localhost:4000"
         echo "📊 Nginx Proxy: http://localhost:80"
         ''',
         resource_deps=['blockscout-start'],
@@ -165,7 +187,7 @@ if not cfg.get('reth-only'):
     print("🚀 FULL ROLLUP STACK ENABLED")
     print("🔧 Reth: http://localhost:8545")
     print("🌟 Celestia: http://localhost:26658")
-    print("🔄 Rollkit: http://localhost:26657")
+    print("🔄 Evolve: http://localhost:7331")
     print("🔍 Blockscout: http://localhost:4000")
     print("📊 Nginx Proxy: http://localhost:80")
 else:
