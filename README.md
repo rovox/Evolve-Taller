@@ -7,7 +7,6 @@ This demo runs a complete rollup development environment with Reth as the execut
 ### Required Software
 - **Docker**: Version 20.10+ with Docker Compose
 - **Tilt**: For development environment orchestration
-- **Python 3.7+**: For running stress tests (optional)
 - **curl** and **jq**: For testing endpoints
 
 ### Installation Commands
@@ -32,10 +31,6 @@ brew install tilt-dev/tap/tilt
 curl -fsSL https://raw.githubusercontent.com/tilt-dev/tilt/master/scripts/install.sh | bash
 ```
 
-#### Python Dependencies (for stress testing)
-```bash
-pip install -r requirements.txt
-```
 
 ## Quick Start
 
@@ -76,19 +71,24 @@ tilt up --reth-only
 
 This runs only Reth at `http://localhost:8545`.
 
-## Stress Testing
+## Load Testing
 
-Run the included stress test to simulate high transaction volume:
+1. Install the Spamoor in the `spamoor` directory:
+```bash
+cd spamoor
+make
+```
+2. Run the spamoor daemon to simulate high transaction volume:
 
 ```bash
-python3 stress_test.py
+./spamoor/bin/spamoor-daemon -h "http://localhost:8545" -p "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" --port 26678
 ```
 
-The stress test:
-- Creates and funds random accounts
-- Sends high-volume transactions 
-- Targets 200+ MGas/s throughput
-- Provides real-time monitoring
+The spamoor daemon:
+- Sends high-volume transactions to test network performance
+- Connects to the local Reth RPC endpoint
+- Uses a test private key for transaction signing
+- Runs on port 26678 for monitoring
 
 ## Stopping the Demo
 
