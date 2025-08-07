@@ -2,11 +2,28 @@
 
 This demo runs a complete rollup development environment with Reth as the execution layer, Celestia as the data availability layer, and EV-Node as the sequencer.
 
+## Table of Contents
+
+- [Architecture Diagram](#architecture-diagram)
+- [Prerequisites](#prerequisites)
+- [Quick Start](#quick-start)
+- [Alternative: Reth-Only Mode](#alternative-reth-only-mode)
+- [Load Testing](#load-testing)
+- [Stopping the Demo](#stopping-the-demo)
+- [Troubleshooting](#troubleshooting)
+- [Architecture](#architecture)
+- [Services Overview](#services-overview)
+
+## Architecture Diagram
+
+![Fullstack Application Architecture](./fullstack_app.svg)
+
 ## Prerequisites
 
 ### Required Software
 - **Docker**: Version 20.10+ with Docker Compose
 - **Tilt**: For development environment orchestration
+- **Go**: Version 1.21+ (required for spamoor load testing tool)
 - **curl** and **jq**: For testing endpoints
 
 ### Installation Commands
@@ -29,6 +46,21 @@ brew install tilt-dev/tap/tilt
 
 # Linux/Windows
 curl -fsSL https://raw.githubusercontent.com/tilt-dev/tilt/master/scripts/install.sh | bash
+```
+
+#### Go (for Spamoor)
+```bash
+# macOS
+brew install go
+
+# Ubuntu/Debian
+wget https://go.dev/dl/go1.21.0.linux-amd64.tar.gz
+sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz
+echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+source ~/.bashrc
+
+# Windows
+# Download installer from https://golang.org/dl/
 ```
 
 
@@ -114,8 +146,8 @@ docker volume prune
 ## Architecture
 
 - **Reth**: High-performance Ethereum execution client
+- **EV-Node**: Sovereign rollup sequencer built on Evolve
 - **Celestia**: Modular data availability network (Mocha testnet)
-- **EV-Node**: Sovereign rollup sequencer built on Rollkit
 - **Docker Compose**: Service orchestration across three compose files
 
 ## Services Overview
