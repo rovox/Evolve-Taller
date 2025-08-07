@@ -7,7 +7,6 @@ This demo runs a complete rollup development environment with Reth as the execut
 - [Architecture Diagram](#architecture-diagram)
 - [Prerequisites](#prerequisites)
 - [Quick Start](#quick-start)
-- [Alternative: Reth-Only Mode](#alternative-reth-only-mode)
 - [Load Testing](#load-testing)
 - [Stopping the Demo](#stopping-the-demo)
 - [Troubleshooting](#troubleshooting)
@@ -93,15 +92,6 @@ curl -s http://localhost:8545 \
 curl -s http://localhost:7331/status | jq .
 ```
 
-## Alternative: Reth-Only Mode
-
-For development with just the execution layer:
-
-```bash
-tilt up --reth-only
-```
-
-This runs only Reth at `http://localhost:8545`.
 
 ## Load Testing
 
