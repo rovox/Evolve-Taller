@@ -1,0 +1,6 @@
+[submodule "blockscout"]
+	path = demo-evolve-campMamo
+	url = git@github.com:Bidon15/evolve-demo.git
+[submodule "spamoor"]
+	path = ev-node
+	url = git@github.com:evstack/ev-node.git
