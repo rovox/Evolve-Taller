@@ -1,0 +1,222 @@
+> si una billetera externa como keplr que tiene soporte para la testnet mocha de celestia que debo
+  realizar para que la configuracion se realice de manera segura y automatica, donde se gestione la
+  clave privada y con esta wallet simplemente se puedan realizar las transacciones que necesite mi
+  contrato inteligente rwa-soberano ?, cuales serian los cambios si ya no necesitaria conectarlo con
+   la testnet local de celestia
+
+✦ Excelente pregunta. Aquí estás tocando el núcleo de cómo una dApp (Aplicación Descentralizada)
+  real interactúa con los usuarios de forma segura, separando las responsabilidades del frontend y
+   el backend.
+
+  Has identificado un punto clave: el usuario final que interactúa con tu contrato no debe ser
+  el mismo que paga por la disponibilidad de datos en Celestia. Son dos roles completamente
+  distintos con dos tipos de wallets diferentes.
+
+  Vamos a separar el flujo en dos partes:
+
+   1. Frontend: La interacción del usuario con tu contrato inteligente (usando una wallet EVM como
+      MetaMask).
+   2. Backend: El trabajo del secuenciador de publicar datos en Celestia (usando una wallet de
+      Celestia gestionada de forma segura).
+
+  No usarás Keplr para el Contrato, usarás MetaMask
+
+  Este es el concepto más importante a aclarar:
+   * Keplr es una wallet para el ecosistema Cosmos (como Celestia). Se usa para manejar tokens
+     TIA.
+   * Tu rollup (Evolve/Reth) es un entorno EVM (Ethereum Virtual Machine). Para interactuar con
+     él, los usuarios necesitan una wallet EVM como MetaMask, Rabby, Coinbase Wallet, etc.
+
+  Tu frontend ya está preparado para esto con la librería wagmi.
+
+  ---
+
+  Parte 1: Cambios para la Interacción del Usuario (Frontend Seguro)
+
+  El objetivo es que un usuario visite tu página web, conecte su MetaMask y firme transacciones
+  para tu contrato rwa-soberano sin que su clave privada salga nunca de su wallet. La
+  configuración actual de tu proyecto está muy cerca de lograr esto.
+
+  Los cambios son principalmente en el frontend:
+
+   1. No hay cambios en la gestión de claves: La belleza de wagmi y viem es que tú no gestionas la
+      clave privada del usuario. La librería se comunica con el proveedor de la wallet (MetaMask)
+      en el navegador del usuario. Cuando se necesita una firma, tu dApp le pide a wagmi que
+      solicite la firma, MetaMask muestra un pop-up al usuario, y el usuario aprueba o rechaza. La
+      clave privada nunca es accesible para tu código.
+
+   2. Asegurar la Configuración de `wagmi`:
+      El archivo frontend/src/config/wagmi.ts define a qué redes se puede conectar tu dApp.
+  Debes asegurarte de que apunte a tu rollup.
+
+    1     // frontend/src/config/wagmi.ts
+    2     import { http, createConfig } from 'wagmi';
+    3     import { celo, mainnet, sepolia } from 'wagmi/chains';
+    4     import { defineChain } from 'viem';
+    5
+    6     // ESTA ES LA PARTE CLAVE
+    7     // Define tu rollup como una cadena personalizada para Viem/Wagmi
+    8     export const evolveRollup = defineChain({
+    9       id: 16661, // El Chain ID de tu rollup (ajústalo si es diferente en
+      genesis.json)
+   10       name: 'Evolve Rollup',
+   11       nativeCurrency: {
+   12         decimals: 18,
+   13         name: 'Ether',
+   14         symbol: 'ETH',
+   15       },
+   16       rpcUrls: {
+   17         default: {
+   18           http: ['http://localhost:8545'], // El RPC de tu rollup
+   19         },
+   20       },
+   21     });
+   22
+   23     export const config = createConfig({
+   24       chains: [evolveRollup, mainnet, sepolia, celo], // Añade tu rollup a la
+      lista
+   25       transports: {
+   26         [evolveRollup.id]: http(), // Usa transporte HTTP para tu rollup
+   27         [mainnet.id]: http(),
+   28         [sepolia.id]: http(),
+   29         [celo.id]: http(),
+   30       },
+   31     });
+
+   3. Actualizar la Interfaz de Usuario (`RWAInterface.tsx`):
+      Tu componente de React usará los "hooks" de wagmi para realizar acciones.
+
+       * useAccount(): Para obtener la dirección del usuario conectado.
+       * useWriteContract(): Para enviar una transacción a tu contrato inteligente.
+
+      Un ejemplo simplificado en frontend/src/components/RWAInterface.tsx se vería así:
+
+    1     import { useAccount, useWriteContract } from 'wagmi';
+    2     import { rwaSoberanoAbi, rwaSoberanoAddress } from './contracts'; //
+      Necesitarás tener la ABI y la dirección del contrato
+    3
+    4     function YourComponent() {
+    5       const { address, isConnected } = useAccount();
+    6       const { writeContract } = useWriteContract();
+    7
+    8       const handleTransaction = async () => {
+    9         if (!isConnected) {
+   10           alert("Por favor, conecta tu wallet primero");
+   11           return;
+   12         }
+   13         writeContract({
+   14           address: rwaSoberanoAddress,
+   15           abi: rwaSoberanoAbi,
+   16           functionName: 'nombreDeTuFuncion', // La función que quieres llamar
+      en tu contrato
+   17           args: [/* argumentos de la función */],
+   18         });
+   19       };
+   20
+   21       return (
+   22         <div>
+   23           {/* Wagmi ya provee botones de conexión, o puedes hacer uno custom
+      */}
+   24           <w3m-button /> {/* Botón de conexión de Web3Modal */}
+   25
+   26           {isConnected && (
+   27             <div>
+   28               <p>Conectado como: {address}</p>
+   29               <button onClick={handleTransaction}>
+   30                 Ejecutar Transacción en Contrato RWA
+   31               </button>
+   32             </div>
+   33           )}
+   34         </div>
+   35       );
+   36     }
+
+  Resumen del Flujo de Usuario:
+   1. El usuario visita tu dApp.
+   2. Hace clic en "Conectar Wallet" (el botón de Web3Modal/wagmi).
+   3. Elige MetaMask y aprueba la conexión.
+   4. Hace clic en el botón "Ejecutar Transacción".
+   5. wagmi prepara la transacción y le pide a MetaMask que la muestre.
+   6. MetaMask muestra un pop-up al usuario para que confirme la transacción y el gas.
+   7. El usuario aprueba.
+   8. MetaMask firma la transacción y la envía al RPC de tu rollup (http://localhost:8545).
+   9. La transacción entra en el mempool de tu rollup para ser procesada por el secuenciador.
+
+  ---
+
+  Parte 2: Cambios para la Gestión de la Wallet de Celestia (Backend Seguro)
+
+  Aquí es donde usas la clave de tu wallet de Keplr (o cualquier wallet de Celestia) de forma
+  segura para que el secuenciador pague por la DA en Mocha.
+
+  El principio clave es: No hardcodear claves privadas o mnemónicos en los scripts.
+
+   1. Crear un archivo `.env`:
+      En la raíz de tu proyecto, crea un archivo llamado .env (este archivo suele estar en el
+  .gitignore por seguridad). Dentro, pon la información sensible de tu wallet de Mocha.
+
+   1     # /home/robvox/evolve/evolve-demo/.env
+   2
+   3     # El mnemónico de 12 o 24 palabras de tu wallet de Mocha.
+   4     # ¡PONLO ENTRE COMILLAS!
+   5     MOCHA_MNEMONIC="word1 word2 word3 word4 word5 word6 word7 word8 word9
+     word10 word11 word12"
+   6
+   7     # El RPC público de Mocha al que te conectarás.
+   8     MOCHA_RPC_URL="https://rpc-mocha.pops.one"
+
+   2. Modificar `rollup-init.sh` para Usar el `.env`:
+      Ahora, en lugar de hardcodear valores, el script leerá el archivo .env y usará las
+  herramientas de Celestia para obtener la dirección y el token de forma dinámica y segura.
+
+      Edita rollup-init.sh y reemplaza la sección de Celestia por esto:
+
+    1     #
+      ==============================================================================
+      ====
+    2     echo "Configuring connection to public Mocha testnet from .env file..."
+    3
+    4     # Carga las variables desde el archivo .env
+    5     if [ -f .env ]; then
+    6       export $(cat .env | sed 's/#.*//g' | xargs)
+    7     else
+    8       echo "Error: .env file not found. Please create it with MOCHA_MNEMONIC
+      and MOCHA_RPC_URL."
+    9       exit 1
+   10     fi
+   11
+   12     # Instala la CLI de Celestia si no está (esto es para tu máquina local, no
+      para docker)
+   13     # Necesitarás 'cel-key' para derivar la dirección y el token.
+   14     # Asumimos que ya tienes la CLI instalada.
+   15
+   16     # Deriva la dirección de Celestia a partir del mnemónico
+   17     # (Este comando puede variar ligeramente dependiendo de la versión de la
+      CLI)
+   18     export CELESTIA_ADDRESS=$(echo $MOCHA_MNEMONIC | cel-key parse)
+   19
+   20     # Genera el AUTH TOKEN para el RPC a partir del mnemónico
+   21     export CELESTIA_AUTH_TOKEN=$(cel-key auth admin --p2p.network mocha
+      --keyring-backend test --node.store /tmp/celestia-keys) # Ajusta la ruta si es
+      necesario
+   22
+   23     # El resto de la lógica es similar a la anterior...
+   24     export GENESIS_HASH=
+      "236E62F4438443653A34F03735A4AC06530442322994449427E422A64551449E" # Mocha-4
+   25     export DA_CONFIG="{\"baseURL\":\"${MOCHA_RPC_URL}\",\"token\":\"
+      ${CELESTIA_AUTH_TOKEN}\",\"gasLimit\":2000000}"
+   26     #
+      ==============================================================================
+      ====
+      Nota: Este enfoque requiere que ejecutes rollup-init.sh en un entorno donde la CLI de
+  Celestia (cel-key) esté instalada y pueda acceder al mnemónico desde el archivo .env.
+
+  En resumen, el flujo completo sería:
+   1. Usuario (Frontend): Conecta su MetaMask a tu dApp. Llama a una función de tu contrato. Firma
+      la transacción de EVM.
+   2. Secuenciador (Backend): Recibe esta transacción. La empaqueta con otras. Usa la clave de
+      Celestia (cargada de forma segura desde .env) para firmar y pagar la publicación del blob de
+      datos en la testnet Mocha.
+   3. Resultado: La transacción del usuario se ejecuta en tu rollup y se asegura en Celestia, todo
+      sin que el usuario necesite una wallet de Celestia y sin que tú expongas las claves del
+      secuenciador en el código.

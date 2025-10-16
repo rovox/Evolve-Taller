@@ -111,61 +111,94 @@ if not cfg.get('reth-only'):
     dc_resource('rollkit-sequencer', labels=['rollkit'])
     
     
-    # Start Blockscout explorer after reth is ready (not dependent on rollup-ready)
-    local_resource('blockscout-start',
+    # Deploy RWA smart contracts to the rollup once the sequencer is up
+    local_resource('deploy-rwa-contracts',
         '''
-        echo "🔍 Starting Blockscout explorer..."
-        cd blockscout/docker-compose
-        cp ../../blockscout.env ./envs/custom-blockscout.env
-        
-        echo "🔍 Starting docker containers..."
-        docker compose -f geth.yml --env-file ./envs/custom-blockscout.env up -d
-        
-        echo "🔍 Waiting for containers to initialize..."
-        sleep 10
-        
-        echo "🔍 Checking container status..."
-        docker compose -f geth.yml --env-file ./envs/custom-blockscout.env ps
-        
-        echo "🔍 Checking backend logs for any errors..."
-        timeout 10 docker compose -f geth.yml --env-file ./envs/custom-blockscout.env logs backend || echo "Backend logs check completed"
+        set -euo pipefail
+
+    RED="\033[0;31m"
+    YELLOW="\033[1;33m"
+    GREEN="\033[0;32m"
+    NC="\033[0m"
+
+        printf "🚀 Deploying RWA smart contracts...\\n"
+        cd rwa-soberano-evolve || exit 1
+        if command -v forge >/dev/null 2>&1; then
+            forge build
+        else
+            printf "%b❌ forge not found in PATH%b\\n" "$RED" "$NC"
+            exit 1
+        fi
+
+        PRIVATE_KEY=${PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}
+        printf "Using RPC: http://localhost:8545\\n"
+        if ! PRIVATE_KEY=$PRIVATE_KEY forge script script/DeployToRollup.s.sol --rpc-url http://localhost:8545 --broadcast --legacy; then
+            printf "%b❌ Deploy failed (see forge logs above)%b\\n" "$RED" "$NC"
+            exit 1
+        fi
+
+        if [ ! -f deployed-addresses.env ]; then
+            printf "%b❌ URGENTE: deployed-addresses.env no fue generado por el script%b\n" "$RED" "$NC"
+            printf "%bSugerencia:%b verifica fs_permissions en rwa-soberano-evolve/foundry.toml:\n" "$YELLOW" "$NC"
+            printf "  fs_permissions = [ { access = \"read\", path = \"./\" }, { access = \"write\", path = \"./deployed-addresses.env\" } ]\n"
+            exit 1
+        fi
+
+        printf "%b✅ Contracts deployed. Addresses:%b\\n" "$GREEN" "$NC"
+        cat deployed-addresses.env
         ''',
-        resource_deps=['reth-ready'],
-        labels=['blockscout']
+        resource_deps=['rollkit-sequencer'],
+        labels=['contracts']
     )
-    
-    # Wait for Blockscout to be ready
-    local_resource('blockscout-ready',
+
+    # Run a quick integration test that exercises the deployed contracts
+    local_resource('rwa-integration-test',
         '''
-        echo "🔍 Waiting for Blockscout to be ready..."
-        
-        echo "🔍 Checking if backend is responding on port 4000..."
-        timeout 120 bash -c '
-        until curl -s http://localhost:4000/api/v1/config | grep -q "backend"; do
-            echo "Waiting for Blockscout backend API..."
-            sleep 5
-        done'
-        
-        echo "🔍 Checking if nginx proxy is responding on port 80..."
-        timeout 60 bash -c '
-        until curl -s http://localhost:80 > /dev/null; do
-            echo "Waiting for Nginx proxy..."
-            sleep 5
-        done'
-        
-        echo "🔍 Final container status check..."
-        cd blockscout/docker-compose
-        docker compose -f geth.yml --env-file ./envs/custom-blockscout.env ps
-        
-        echo ""
-        echo "🎉 BLOCKSCOUT IS READY!"
-        echo "================================"
-        echo "🔍 Blockscout Frontend: http://localhost:80"
-        echo "🔍 Blockscout Backend API: http://localhost:4000"
-        echo "📊 Nginx Proxy: http://localhost:80"
+        echo "🧪 Running RWA integration test..."
+        # Ensure script is executable and run it
+        if [ -f ./test-rwa-integration.sh ]; then
+            chmod +x ./test-rwa-integration.sh
+            ./test-rwa-integration.sh || (echo "Integration test failed" && exit 1)
+        else
+            echo "test-rwa-integration.sh not found in repo root"
+            exit 1
+        fi
         ''',
-        resource_deps=['blockscout-start'],
-        labels=['blockscout']
+        resource_deps=['deploy-rwa-contracts'],
+        labels=['contracts']
+    )
+
+    # Sync contract addresses to frontend
+    local_resource('sync-frontend-addresses',
+        '''
+        echo "📦 Syncing contract addresses to frontend..."
+        if [ -f ./sync-contract-addresses.sh ]; then
+            chmod +x ./sync-contract-addresses.sh
+            ./sync-contract-addresses.sh
+        else
+            echo "sync-contract-addresses.sh not found"
+            exit 1
+        fi
+        ''',
+        resource_deps=['rwa-integration-test'],
+        labels=['frontend']
+    )
+
+    # Start frontend dev server
+    local_resource('frontend-dev',
+        '''
+        cd frontend
+        if [ ! -d node_modules ]; then
+            echo "📦 Installing frontend dependencies..."
+            npm install
+        fi
+        echo "🚀 Starting frontend dev server..."
+        npm run dev
+        ''',
+        resource_deps=['sync-frontend-addresses'],
+        serve_cmd='cd frontend && npm run dev',
+        links=['http://localhost:5173'],
+        labels=['frontend']
     )
 
 # Manual health check from host
@@ -188,8 +221,8 @@ if not cfg.get('reth-only'):
     print("🔧 Reth: http://localhost:8545")
     print("🌟 Celestia: http://localhost:26658")
     print("🔄 Evolve: http://localhost:7331")
-    print("🔍 Blockscout: http://localhost:4000")
-    print("📊 Nginx Proxy: http://localhost:80")
+    print("🎨 Frontend: http://localhost:5173")
+    # Blockscout and nginx proxy removed from default flow
 else:
     print("🔧 RETH-ONLY MODE")
     print("🔗 Reth RPC: http://localhost:8545")
@@ -198,5 +231,5 @@ print("📊 Tilt Dashboard: http://localhost:10350")
 print("🌐 Shared Network: rollup-network")
 print("")
 print("💡 Usage:")
-print("  tilt up           # Full rollup stack + Blockscout (DEFAULT)")
+print("  tilt up           # Full rollup stack + Frontend (DEFAULT)")
 print("  tilt up --reth-only # Just Reth for development")

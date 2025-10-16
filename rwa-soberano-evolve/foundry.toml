@@ -1,0 +1,38 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib", "lib/openzeppelin-contracts"]
+solc = "0.8.24"
+
+# Remappings para OpenZeppelin
+remappings = [
+    "@openzeppelin/=lib/openzeppelin-contracts/",
+    "forge-std/=lib/forge-std/src/",
+]
+
+fs_permissions = [
+    { access = "read", path = "." },
+    { access = "write", path = "." },
+    { access = "write", path = "./deployed-addresses.env" }
+]
+
+# Configuracion para Celestia Mocha
+[rpc_endpoints]
+# celestia = "https://rpc-mocha.pops.one/"
+# Alternativas si falla:
+# celestia = "https://celestia-mocha-rpc.publicnode.com:443"
+localhost = "http://localhost:8545"  # puerto de reth
+# celestia = "https://mocha-rpc.celenium.io/"
+
+[etherscan]
+celestia = { key = "" }
+
+# Para gas optimization
+[fuzz]
+runs = 10000
+
+[fmt]
+line_length = 120
+
+
+# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

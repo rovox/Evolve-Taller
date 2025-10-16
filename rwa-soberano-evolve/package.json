@@ -1,0 +1,23 @@
+{
+  "name": "rwa-soberano-evolve",
+  "version": "1.0.0",
+  "description": "RWA Soberano - Contratos para Evolve + Celestia",
+  "type": "module",
+  "scripts": {
+    "compile": "forge build",
+    "test": "forge test",
+    "test:watch": "forge test --watch",
+    "deploy:local": "forge script script/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast",
+    "deploy:evolve": "forge script script/Deploy.s.sol --rpc-url $EVOLVE_RPC_URL --broadcast --verify",
+    "deploy:celestia": "forge script script/Deploy.s.sol --rpc-url https://rpc-mocha.pops.one/ --broadcast --verify",
+    "integration:test": "node scripts/run-evolve-integration.js",
+    "copy:abis": "cp out/DocumentRegistry.sol/DocumentRegistry.json ../frontend/src/abis/ && cp out/RWASovereignRollup.sol/RWASovereignRollup.json ../frontend/src/abis/"
+  },
+  "dependencies": {
+    "ethers": "^6.0.0"
+  },
+  "devDependencies": {
+    "mocha": "^10.0.0",
+    "chai": "^4.0.0"
+  }
+}

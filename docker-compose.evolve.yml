@@ -14,7 +14,7 @@ services:
       - rollup-network
 
   rollkit-sequencer:
-    image: ghcr.io/evstack/ev-node-evm-single:main
+    image: ghcr.io/evstack/ev-node-evm-single:pr-2763
     container_name: rollkit-evm-single
     depends_on:
       rollup-init:

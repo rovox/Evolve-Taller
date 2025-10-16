@@ -1,0 +1,274 @@
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    EVOLVE ROLLUP + RWA CONTRACTS FLOW                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+                              ┌──────────────┐
+                              │  tilt up     │
+                              └──────┬───────┘
+                                     │
+                    ┌────────────────┼────────────────┐
+                    │                │                │
+                    ▼                ▼                ▼
+           ┌────────────┐   ┌────────────┐   ┌────────────┐
+           │   Reth     │   │  Celestia  │   │  Rollkit   │
+           │ :8545/8551 │   │   :26658   │   │   :7331    │
+           └─────┬──────┘   └─────┬──────┘   └─────┬──────┘
+                 │                │                │
+                 │                │                │
+                 └────────────────┴────────────────┘
+                                  │
+                        ┌─────────▼─────────┐
+                        │  All nodes ready  │
+                        └─────────┬─────────┘
+                                  │
+                    ┌─────────────▼─────────────┐
+                    │  deploy-rwa-contracts     │
+                    │  (Tiltfile resource)      │
+                    └─────────────┬─────────────┘
+                                  │
+                         ┌────────▼────────┐
+                         │  forge build    │
+                         └────────┬────────┘
+                                  │
+                    ┌─────────────▼──────────────┐
+                    │  forge script               │
+                    │  DeployToRollup.s.sol      │
+                    └─────────────┬──────────────┘
+                                  │
+              ┌───────────────────┼───────────────────┐
+              │                   │                   │
+              ▼                   ▼                   ▼
+    ┌─────────────────┐ ┌─────────────────┐ ┌──────────────────┐
+    │DocumentRegistry │ │   AssetToken    │ │RWASovereingRollup│
+    │   deployed      │ │    deployed     │ │    deployed      │
+    └────────┬────────┘ └────────┬────────┘ └────────┬─────────┘
+             │                   │                   │
+             └───────────────────┴───────────────────┘
+                                 │
+                    ┌────────────▼────────────┐
+                    │ deployed-addresses.env  │
+                    │   generated             │
+                    └────────────┬────────────┘
+                                 │
+                    ┌────────────▼─────────────┐
+                    │  rwa-integration-test    │
+                    │  (Tiltfile resource)     │
+                    └────────────┬─────────────┘
+                                 │
+                    ┌────────────▼─────────────┐
+                    │ test-rwa-integration.sh  │
+                    └────────────┬─────────────┘
+                                 │
+        ┌────────────────────────┼────────────────────────┐
+        │                        │                        │
+        ▼                        ▼                        ▼
+┌───────────────┐      ┌──────────────────┐    ┌──────────────────┐
+│ Test 1-3:     │      │ Test 4-6:        │    │ Test 7-8:        │
+│ - RPC check   │      │ - Register doc   │    │ - Celestia check │
+│ - Code verify │      │ - Mint tokens    │    │ - Block prod     │
+│ - Wiring      │      │ - Verify balance │    │                  │
+└───────┬───────┘      └────────┬─────────┘    └────────┬─────────┘
+        │                       │                       │
+        └───────────────────────┴───────────────────────┘
+                                │
+                    ┌───────────▼────────────┐
+                    │  ✅ ALL TESTS PASSED   │
+                    │  Integration complete  │
+                    └────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                              KEY COMPONENTS
+═══════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ FILE: Tiltfile                                                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ • Orchestrates entire stack startup                                         │
+│ • Removed: blockscout-start, blockscout-ready                               │
+│ • Added: deploy-rwa-contracts, rwa-integration-test                         │
+│ • Dependencies: rollkit-sequencer → deploy → test                           │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ FILE: rwa-soberano-evolve/script/DeployToRollup.s.sol                      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ • Foundry deployment script                                                 │
+│ • Deploys: DocumentRegistry, AssetToken, RWASovereingRollup                │
+│ • Outputs: deployed-addresses.env                                           │
+│ • Uses: PRIVATE_KEY env var (default: dev key)                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ FILE: test-rwa-integration.sh                                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ • Bash integration test suite                                               │
+│ • 8 comprehensive tests covering all aspects                                │
+│ • Verifies: deployment, wiring, functionality, DA layer                     │
+│ • Color-coded output with detailed error messages                           │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ FILE: RWA-INTEGRATION-GUIDE.md                                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ • Complete documentation                                                     │
+│ • Usage instructions, troubleshooting, next steps                           │
+│ • Security notes and best practices                                         │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                          AUTHENTICATION FLOW
+═══════════════════════════════════════════════════════════════════════════════
+
+    Reth JWT                      Celestia JWT                 Genesis Hash
+┌──────────────┐              ┌──────────────┐            ┌─────────────┐
+│ Generated by │              │ Generated by │            │ Fetched via │
+│ Tiltfile     │              │ celestia CLI │            │ RPC call    │
+└──────┬───────┘              └──────┬───────┘            └──────┬──────┘
+       │                             │                           │
+       │ Saved to:                   │ Saved to:                 │
+       │ jwt-tokens:/shared/         │ /shared/jwt/              │
+       │ reth-jwt-secret.txt         │ celestia-jwt.token        │
+       │                             │                           │
+       └─────────────────────────────┴───────────────────────────┘
+                                     │
+                        ┌────────────▼────────────┐
+                        │   rollup-init.sh        │
+                        │   Collects all secrets  │
+                        └────────────┬────────────┘
+                                     │
+                        ┌────────────▼────────────┐
+                        │   /shared/rollkit.env   │
+                        │   • EVM_JWT_SECRET      │
+                        │   • DA_AUTH_TOKEN       │
+                        │   • EVM_GENESIS_HASH    │
+                        └────────────┬────────────┘
+                                     │
+                        ┌────────────▼────────────┐
+                        │  rollkit-start.sh       │
+                        │  Loads env and starts   │
+                        │  sequencer              │
+                        └─────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                           DATA FLOW (TRANSACTION)
+═══════════════════════════════════════════════════════════════════════════════
+
+  User/Frontend                Reth               Rollkit            Celestia
+      │                         │                    │                   │
+      │  1. Send TX             │                    │                   │
+      ├────────────────────────>│                    │                   │
+      │                         │                    │                   │
+      │                         │  2. Read mempool   │                   │
+      │                         │<───────────────────┤                   │
+      │                         │                    │                   │
+      │                         │  3. Package block  │                   │
+      │                         │                    │                   │
+      │                         │                    │  4. Submit blob   │
+      │                         │                    ├──────────────────>│
+      │                         │                    │                   │
+      │                         │  5. Execute block  │                   │
+      │                         │<───────────────────┤                   │
+      │                         │    (Engine API)    │                   │
+      │                         │                    │                   │
+      │  6. Get receipt         │                    │                   │
+      │<────────────────────────┤                    │                   │
+      │                         │                    │                   │
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                            QUICK START COMMANDS
+═══════════════════════════════════════════════════════════════════════════════
+
+# Start entire stack (includes automatic contract deployment & testing)
+tilt up
+
+# Check Tilt dashboard
+open http://localhost:10350
+
+# Monitor specific resources
+tilt logs deploy-rwa-contracts
+tilt logs rwa-integration-test
+
+# Manual contract deployment (if needed)
+cd rwa-soberano-evolve
+PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
+forge script script/DeployToRollup.s.sol \
+    --rpc-url http://localhost:8545 \
+    --broadcast \
+    --legacy
+
+# Manual integration test
+./test-rwa-integration.sh
+
+# Check deployed addresses
+cat rwa-soberano-evolve/deployed-addresses.env
+
+# Interact with contracts
+source rwa-soberano-evolve/deployed-addresses.env
+cast call $TOKEN_ADDRESS "name()(string)" --rpc-url http://localhost:8545
+
+# Check block production
+cast block-number --rpc-url http://localhost:8545
+
+# Check Celestia DA
+curl -X POST http://localhost:26658 \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"header.NetworkHead","params":[],"id":1}'
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                              SUCCESS INDICATORS
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ Tilt dashboard shows all resources green
+✅ deploy-rwa-contracts completed successfully
+✅ rwa-integration-test shows "ALL TESTS PASSED"
+✅ deployed-addresses.env contains 3 contract addresses
+✅ Reth producing blocks (check cast block-number)
+✅ Celestia DA responding (check curl command above)
+✅ Contracts callable (cast call commands work)
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                                  PORTS
+═══════════════════════════════════════════════════════════════════════════════
+
+8545  - Reth JSON-RPC (public)
+8551  - Reth Engine API (authenticated with JWT)
+26658 - Celestia JSON-RPC (authenticated with JWT)
+7331  - Rollkit RPC
+10350 - Tilt dashboard
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                              FILES CREATED/MODIFIED
+═══════════════════════════════════════════════════════════════════════════════
+
+MODIFIED:
+  • Tiltfile
+    - Removed Blockscout resources
+    - Added deploy-rwa-contracts resource
+    - Added rwa-integration-test resource
+    - Updated printed output
+
+CREATED:
+  • rwa-soberano-evolve/script/DeployToRollup.s.sol
+    - Foundry deployment script
+    - Deploys all RWA contracts
+    - Generates deployed-addresses.env
+
+  • test-rwa-integration.sh (executable)
+    - Comprehensive integration test suite
+    - 8 tests covering full functionality
+    - Color-coded output
+
+  • RWA-INTEGRATION-GUIDE.md
+    - Complete documentation
+    - Usage, troubleshooting, next steps
+    
+  • INTEGRATION-FLOW.txt (this file)
+    - Visual diagrams and flow charts
+    - Quick reference guide

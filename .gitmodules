@@ -1,6 +1,0 @@
-[submodule "blockscout"]
-	path = blockscout
-	url = git@github.com:blockscout/blockscout.git
-[submodule "spamoor"]
-	path = spamoor
-	url = git@github.com:ethpandaops/spamoor.git
