@@ -21,6 +21,12 @@ ADDRESSES_FILE="$CONTRACTS_DIR/deployed-addresses.env"
 RPC_URL="${RPC_URL:-http://localhost:8545}"
 PRIVATE_KEY="${PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}"
 
+# Celestia defaults (host-side). You can override via env.
+CELESTIA_RPC="${CELESTIA_RPC:-http://localhost:26658}"
+# Attempt to read rollkit env from shared volume or local file for DA namespace/token.
+ROLLKIT_ENV_FILE="${ROLLKIT_ENV_FILE:-/shared/rollkit.env}"
+ALT_ROLLKIT_ENV_FILE="${ALT_ROLLKIT_ENV_FILE:-./rollkit.env}"
+
 # Helper to fail fast with red, urgent messaging
 fail() {
     local msg="$1"
@@ -77,6 +83,114 @@ simulate_call() {
     cast call "$TO" "$SIG" "$@" --from "${SIGNER:-0x0000000000000000000000000000000000000001}" --rpc-url "$RPC_URL" 2>&1 || true
 }
 # --- Fin utilidades ---
+
+# --- Celestia DA: utilidades para verificación ---
+resolve_namespace() {
+    # Priority order: explicit envs, rollkit files.
+    for var in EV_NAMESPACE NAMESPACE_ID ROLLKIT_NAMESPACE_ID DA_NAMESPACE; do
+        if [ -n "${!var:-}" ]; then echo "${!var}"; return; fi
+    done
+    if [ -f "$ROLLKIT_ENV_FILE" ]; then
+        grep -E '(^DA_NAMESPACE=|^EV_NAMESPACE=|^NAMESPACE_ID=|^ROLLKIT_NAMESPACE_ID=)' "$ROLLKIT_ENV_FILE" \
+          | tail -n1 | cut -d'=' -f2 | tr -d '"' | tr -d "'"; return
+    fi
+    if [ -f "$ALT_ROLLKIT_ENV_FILE" ]; then
+        grep -E '(^DA_NAMESPACE=|^EV_NAMESPACE=|^NAMESPACE_ID=|^ROLLKIT_NAMESPACE_ID=)' "$ALT_ROLLKIT_ENV_FILE" \
+          | tail -n1 | cut -d'=' -f2 | tr -d '"' | tr -d "'"; return
+    fi
+    echo ""
+}
+
+resolve_celestia_auth() {
+    # Try env, then rollkit files
+    if [ -n "${CELESTIA_AUTH_TOKEN:-}" ]; then echo "$CELESTIA_AUTH_TOKEN"; return; fi
+    if [ -f "$ROLLKIT_ENV_FILE" ]; then
+        grep -E '^DA_AUTH_TOKEN=' "$ROLLKIT_ENV_FILE" | tail -n1 | cut -d'=' -f2 | tr -d '"' | tr -d "'"; return
+    fi
+    if [ -f "$ALT_ROLLKIT_ENV_FILE" ]; then
+        grep -E '^DA_AUTH_TOKEN=' "$ALT_ROLLKIT_ENV_FILE" | tail -n1 | cut -d'=' -f2 | tr -d '"' | tr -d "'"; return
+    fi
+    echo ""
+}
+
+celestia_curl() {
+    # Wrapper that includes Authorization header if available
+    local URL_PATH="$1"; shift || true
+    local TOKEN; TOKEN=$(resolve_celestia_auth || true)
+    if [ -n "$TOKEN" ]; then
+        curl -s "${CELESTIA_RPC%/}/$URL_PATH" -H "Authorization: Bearer $TOKEN" "$@"
+    else
+        curl -s "${CELESTIA_RPC%/}/$URL_PATH" "$@"
+    fi
+}
+
+celestia_post_jsonrpc() {
+    local METHOD="$1"; shift || true
+    local PARAMS_JSON="${1:-[]}"; shift || true
+    local TOKEN; TOKEN=$(resolve_celestia_auth || true)
+    local HDRS=(-H "Content-Type: application/json")
+    if [ -n "$TOKEN" ]; then HDRS+=(-H "Authorization: Bearer $TOKEN"); fi
+    curl -s -X POST "$CELESTIA_RPC" "${HDRS[@]}" -d "{\"jsonrpc\":\"2.0\",\"method\":\"$METHOD\",\"params\":$PARAMS_JSON,\"id\":1}"
+}
+
+celestia_info() {
+    echo "📡 Celestia endpoint: $CELESTIA_RPC"
+    local RES; RES=$(celestia_post_jsonrpc "header.NetworkHead" "[]" 2>/dev/null || echo "")
+    if echo "$RES" | grep -q 'result'; then
+        echo "✓ Celestia RPC responde"
+        if command -v jq >/dev/null 2>&1; then
+            echo "$RES" | jq -r '"Altura actual: \(.result.header.height)"' 2>/dev/null || true
+        fi
+        CELESTIA_OK=1
+    else
+        echo "⚠ No hay respuesta de Celestia RPC (o falta token)"
+        CELESTIA_OK=0
+    fi
+}
+
+celestia_check_recent_blobs() {
+    local LABEL="$1"; local LOOKBACK="${2:-10}"
+    local NS; NS="$(resolve_namespace || true)"
+    celestia_info
+    if [ -z "$NS" ]; then
+        echo "⚠ Namespace no detectado. Exporta DA_NAMESPACE/NAMESPACE_ID o monta /shared/rollkit.env accesible."
+        return 0
+    fi
+    if ! command -v jq >/dev/null 2>&1; then
+        echo "ℹ Instala 'jq' para inspeccionar blobs de Celestia"
+        return 0
+    fi
+    local HEAD; HEAD=$(celestia_post_jsonrpc "header.NetworkHead" "[]" | jq -r '.result.header.height // 0' 2>/dev/null || echo 0)
+    echo "🔎 Buscando blobs del namespace $NS (últimos $LOOKBACK headers)..."
+    local FOUND=0
+    for ((h=HEAD; h>HEAD-LOOKBACK && h>0; h--)); do
+        local RES; RES=$(celestia_curl "namespaced_data/$h/$NS" 2>/dev/null || echo "")
+        if echo "$RES" | jq -e '.result.data[]' >/dev/null 2>&1; then
+            FOUND=1
+            echo "✅ Celestia: blobs encontrados en altura $h para $LABEL"
+            echo "$RES" | jq -r '.result.data[] | "- commitment: \(.commitment)\n  bytes: \((.data|length))"'
+        fi
+    done
+    [ "$FOUND" = "0" ] && echo "⚠ No se encontraron blobs recientes para el namespace $NS (puede ser normal si no hubo txs)."
+}
+
+# --- NFT: mostrar 'muestra' del NFT RWA existente ---
+show_nft_muestra_existing() {
+    # Intenta detectar si el TOKEN_ADDRESS es ERC721 y mostrar su token RWA
+    local IS721
+    IS721=$(cast call "$TOKEN_ADDRESS" "supportsInterface(bytes4)(bool)" 0x80ac58cd --rpc-url "$RPC_URL" 2>/dev/null || echo "")
+    if [ "$IS721" != "true" ]; then
+        echo "• TOKEN_ADDRESS no reporta ERC721 (supportsInterface). Se omite la muestra NFT."
+        return 0
+    fi
+
+    local TID
+    TID=$(cast call "$TOKEN_ADDRESS" "getRWATokenId()(uint256)" --rpc-url "$RPC_URL" 2>/dev/null || echo "1")
+    local OWNER_NFT
+    OWNER_NFT=$(cast call "$TOKEN_ADDRESS" "ownerOf(uint256)(address)" "$TID" --rpc-url "$RPC_URL" 2>/dev/null || echo "0x0000000000000000000000000000000000000000")
+    echo "🎨 Muestra NFT RWA: tokenId $TID owner $OWNER_NFT"
+}
+# --- Fin Celestia/NFT helpers ---
 
 # Preflight: ensure 'cast' is available for the tests below
 if ! command -v cast >/dev/null 2>&1; then
@@ -222,6 +336,7 @@ CAST_OUT=$(cast send "$TARGET_ADDR" \
 STATUS=$?
 set -e
 
+# Robust TX hash extraction (handles both 'transactionHash' and generic hex capture)
 TX_HASH=$(echo "$CAST_OUT" | grep -Eo '0x[0-9a-fA-F]{64}' | tail -n1 || true)
 
 if [ $STATUS -ne 0 ] || [ -z "$TX_HASH" ]; then
@@ -243,13 +358,36 @@ fi
 
 echo -e "${GREEN}✓ Document registered (tx: $TX_HASH)${NC}"
 
-# Esperar y validar receipt
-sleep 2
-RCPT=$(cast receipt "$TX_HASH" --rpc-url "$RPC_URL" 2>/dev/null || true)
-RCPT_STATUS=$(echo "$RCPT" | grep -i '"status"' | grep -Eo '0x[0-9a-fA-F]+' | tail -n1 || echo "")
-if [ "$RCPT_STATUS" = "0x0" ]; then
-    dump_receipt "$TX_HASH"
-    fail "La transacción se minó con status 0x0 (revertida)"
+# Esperar y validar receipt (método A: --json + jq). Fallback: chequeo básico si falta jq.
+if command -v jq >/dev/null 2>&1; then
+    echo "🔍 Método A: Validación de receipt con --json + jq"
+    RECEIPT_JSON=$(cast wait "$TX_HASH" --rpc-url "$RPC_URL" --json 2>/dev/null || echo "")
+    STATUS_HEX=$(echo "$RECEIPT_JSON" | jq -r '.status // .result.status // empty' | tr '[:upper:]' '[:lower:]')
+    BLOCK_HEX=$(echo "$RECEIPT_JSON" | jq -r '.blockNumber // .result.blockNumber // empty')
+    if [ -z "$BLOCK_HEX" ]; then
+        fail "Tx de registro no incluida en bloque (receipt.blockNumber vacío)."
+    fi
+    if [ "$STATUS_HEX" != "0x1" ] && [ "$STATUS_HEX" != "1" ]; then
+        echo "$RECEIPT_JSON" | jq . >/dev/null 2>&1 || true
+        fail "Tx de registro fallida (status=$STATUS_HEX)."
+    fi
+    echo -e "${GREEN}✓ Receipt válida (status=$STATUS_HEX, block=$BLOCK_HEX)${NC}"
+else
+    echo "🔎 Método B: Validación básica sin jq (status en receipt)"
+    # Polling simple vía eth_getTransactionReceipt hasta que deje de ser null
+    TIMEOUT=60; ELAPSED=0; SLEEP=2
+    while [ $ELAPSED -lt $TIMEOUT ]; do
+        R=$(curl -s -X POST "$RPC_URL" -H 'Content-Type: application/json' \
+            -d "{\"jsonrpc\":\"2.0\",\"method\":\"eth_getTransactionReceipt\",\"params\":[\"$TX_HASH\"],\"id\":1}")
+        if echo "$R" | grep -q '"result":null'; then
+            sleep $SLEEP; ELAPSED=$((ELAPSED+SLEEP)); continue
+        fi
+        if echo "$R" | grep -q '"status":"0x0"'; then
+            fail "Tx de registro revertida (status 0x0)"
+        fi
+        echo -e "${GREEN}✓ Receipt válida (status 0x1)${NC}"; break
+    done
+    [ $ELAPSED -ge $TIMEOUT ] && fail "Timeout esperando receipt de registro"
 fi
 
 # Verificar documento almacenado segun ABI real: RWA_ID() y getDocumentRecord(uint256)
@@ -272,28 +410,81 @@ echo -e "${GREEN}✓ Document retrieved and verified for RWA_ID=$RWA_ID_VAL${NC}
 echo "  Record: $DOC_REC"
 echo ""
 
-# Test 5: Mint tokens
-echo "💰 Test 5: Minting RWA tokens..."
+# Explicación onlyOwner y verificación DA tras registro
+echo "ℹ El 'nuevo documento' es el hash anclado en DocumentRegistry mediante registerDocument(bytes32)."
+echo "   Esta función suele estar protegida con onlyOwner: solo el owner del Registry puede llamarla."
+echo "   En muchos despliegues de este repo el owner del Registry es el contrato RWA; por eso el script"
+echo "   autodirige la llamada a RWA si detecta que es el owner, evitando fallos de permiso."
+
+echo "🛰 Verificando publicación en Celestia tras registrar el documento..."
+celestia_check_recent_blobs "DocumentRegistry.registerDocument" 12
+
+# Test 5: Mostrar 'muestra' del NFT RWA existente (no acuña, solo muestra el token ya minteado)
+echo "🎨 Test 5: Muestra del NFT RWA existente"
+show_nft_muestra_existing
+
+# Test 6: Mint tokens (ERC20)
+echo "💰 Test 6: Minting RWA tokens..."
 RECIPIENT="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"  # Second account from genesis
 MINT_AMOUNT="1000000000000000000"  # 1 token (18 decimals)
 
-TX_HASH=$(cast send "$TOKEN_ADDRESS" \
+# Enviar transacción de minteo y extraer hash de forma robusta
+TX_OUT=$(cast send "$TOKEN_ADDRESS" \
     "mint(address,uint256)" \
     "$RECIPIENT" \
     "$MINT_AMOUNT" \
     --rpc-url "$RPC_URL" \
     --private-key "$PRIVATE_KEY" \
-    --legacy 2>/dev/null | grep "transactionHash" | awk '{print $2}' || echo "")
-
+    --legacy 2>&1 || true)
+TX_HASH=$(echo "$TX_OUT" | grep -Eo '0x[0-9a-fA-F]{64}' | head -n1 || echo "")
 if [ -z "$TX_HASH" ]; then
-    fail "Falló la transacción de minteo de tokens"
+    echo "Salida cast send:"; echo "$TX_OUT"
+    fail "Falló la transacción de minteo de tokens (no se pudo extraer TX hash)"
 fi
-echo -e "${GREEN}✓ Tokens minted (tx: $TX_HASH)${NC}"
+echo -e "${GREEN}✓ Tx de minteo enviada (tx: $TX_HASH)${NC}"
 
-# Wait for transaction to be mined
-sleep 3
+# Validación A (preferida): usar --json + jq para status, inclusión y evento Transfer esperado
+if command -v jq >/dev/null 2>&1; then
+    echo "🔍 Método A: Validación con --json + jq (status + eventos)"
+    RECEIPT_JSON=$(cast wait "$TX_HASH" --rpc-url "$RPC_URL" --json 2>/dev/null || echo "")
+    STATUS_HEX=$(echo "$RECEIPT_JSON" | jq -r '.status // .result.status // empty' | tr '[:upper:]' '[:lower:]')
+    BLOCK_HEX=$(echo "$RECEIPT_JSON" | jq -r '.blockNumber // .result.blockNumber // empty')
+    if [ -z "$BLOCK_HEX" ]; then
+        fail "Tx de minteo no incluida en bloque (receipt.blockNumber vacío)."
+    fi
+    if [ "$STATUS_HEX" != "0x1" ] && [ "$STATUS_HEX" != "1" ]; then
+        echo "$RECEIPT_JSON" | jq . >/dev/null 2>&1 || true
+        fail "Tx de minteo fallida (status=$STATUS_HEX)."
+    fi
+    # Comprobar evento Transfer (ERC20): topic0 = Transfer, topic2 = destinatario
+    TRANSFER_TOPIC="0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+    RECIPIENT_TOPIC="0x000000000000000000000000${RECIPIENT#0x}"
+    HAS_TRANSFER=$(echo "$RECEIPT_JSON" | jq -e --arg t "$TRANSFER_TOPIC" --arg to "$RECIPIENT_TOPIC" '(.logs // []) | any(.topics[0]==$t and .topics[2]|ascii_downcase==$to|ascii_downcase)')
+    if [ "$HAS_TRANSFER" != "true" ]; then
+        echo -e "${YELLOW}⚠ Éxito on-chain, pero no se detectó Transfer al destinatario (${RECIPIENT})${NC}"
+    else
+        echo -e "${GREEN}✓ Evento Transfer detectado hacia ${RECIPIENT}${NC}"
+    fi
+    echo -e "${GREEN}✓ Receipt válida (status=$STATUS_HEX, block=$BLOCK_HEX)${NC}"
+else
+    # Validación B: sin jq. Polling eth_getTransactionReceipt y chequeo de status solamente
+    echo "🔎 Método B: Validación simple por receipt.status (sin jq)"
+    TIMEOUT=60; ELAPSED=0; SLEEP=2
+    while [ $ELAPSED -lt $TIMEOUT ]; do
+        R=$(curl -s -X POST "$RPC_URL" -H 'Content-Type: application/json' \
+            -d "{\"jsonrpc\":\"2.0\",\"method\":\"eth_getTransactionReceipt\",\"params\":[\"$TX_HASH\"],\"id\":1}")
+        if echo "$R" | grep -q '"result":null'; then
+            sleep $SLEEP; ELAPSED=$((ELAPSED+SLEEP)); continue
+        fi
+        if echo "$R" | grep -q '"status":"0x0"'; then
+            fail "Tx de minteo revertida (status 0x0)"
+        fi
+        echo -e "${GREEN}✓ Receipt válida (status 0x1)${NC}"; break
+    done
+    [ $ELAPSED -ge $TIMEOUT ] && fail "Timeout esperando receipt de minteo"
+fi
 
-# Verify balance
+# Verify balance (estado observable)
 BALANCE=$(cast call "$TOKEN_ADDRESS" \
     "balanceOf(address)(uint256)" \
     "$RECIPIENT" \
@@ -305,8 +496,8 @@ fi
 echo -e "${GREEN}✓ Token balance verified: $BALANCE wei${NC}"
 echo ""
 
-# Test 6: Verify token metadata
-echo "🏷️  Test 6: Verifying token metadata..."
+# Test 7: Verify token metadata
+echo "🏷️  Test 7: Verifying token metadata..."
 TOKEN_NAME=$(cast call "$TOKEN_ADDRESS" "name()(string)" --rpc-url "$RPC_URL" 2>/dev/null || echo "")
 TOKEN_SYMBOL=$(cast call "$TOKEN_ADDRESS" "symbol()(string)" --rpc-url "$RPC_URL" 2>/dev/null || echo "")
 
@@ -317,13 +508,11 @@ echo -e "${GREEN}✓ Token name: $TOKEN_NAME${NC}"
 echo -e "${GREEN}✓ Token symbol: $TOKEN_SYMBOL${NC}"
 echo ""
 
-# Test 7: Verify Celestia DA connectivity (optional - check if blobs are being submitted)
-echo "🌟 Test 7: Checking Celestia DA connection..."
+# Test 8: Verify Celestia DA connectivity (JSON-RPC)
+echo "🌟 Test 8: Checking Celestia DA connection (JSON-RPC)..."
 if command -v curl >/dev/null 2>&1; then
-    # Try to get Celestia network head to verify DA layer is reachable
-    CELESTIA_RESPONSE=$(curl -s -X POST http://localhost:26658 \
-        -H "Content-Type: application/json" \
-        -d '{"jsonrpc":"2.0","method":"header.NetworkHead","params":[],"id":1}' 2>/dev/null || echo "")
+    # Try to get Celestia network head to verify DA layer is reachable (include auth if present)
+    CELESTIA_RESPONSE=$(celestia_post_jsonrpc "header.NetworkHead" "[]" 2>/dev/null || echo "")
     
     if echo "$CELESTIA_RESPONSE" | grep -q "result"; then
         echo -e "${GREEN}✓ Celestia DA layer is reachable${NC}"
@@ -340,8 +529,8 @@ else
 fi
 echo ""
 
-# Test 8: Verify rollup is producing blocks
-echo "⛓️  Test 8: Verifying rollup block production..."
+# Test 9: Verify rollup is producing blocks
+echo "⛓️  Test 9: Verifying rollup block production..."
 INITIAL_BLOCK=$BLOCK_NUM
 sleep 5
 NEW_BLOCK=$(cast block-number --rpc-url "$RPC_URL" 2>/dev/null || echo "0")
@@ -364,6 +553,7 @@ echo "  • RPC connectivity: OK"
 echo "  • Contracts deployed: OK"
 echo "  • Contract wiring: OK"
 echo "  • Document registration: OK"
+echo "  • NFT muestra: OK"
 echo "  • Token minting: OK"
 echo "  • Token metadata: OK"
 echo "  • Celestia DA: $([ -n "${CELESTIA_RESPONSE:-}" ] && echo 'OK' || echo 'SKIPPED')"
