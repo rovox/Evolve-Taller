@@ -1,19 +1,20 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.28;
 
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {DocumentRegistry} from "./DocumentRegistry.sol";
-import {AssetToken} from "./AssetToken.sol";
+import {RWAToken} from "./RWAToken.sol";
 
 /**
  * @title RWASovereignRollup
  * @notice Contrato principal que integra tokenización RWA con registro de documentos y simulacion de Rollup Soberano
  * @dev Simula las funciones críticas de un Rollup Soberano en Evolve + Celestia
+ * @dev Utiliza ERC1155 (RWAToken) para multi-asset tokenization
  */
 contract RWASovereignRollup is Ownable {
     // --- Contratos Integrados ---
     DocumentRegistry public documentRegistry;
-    AssetToken public assetToken;
+    RWAToken public rwaToken;
 
     // --- Estado del Rollup ---
     bytes32 public lastStateRoot;
@@ -50,13 +51,13 @@ contract RWASovereignRollup is Ownable {
     }
 
     /**
-     * @notice Sets the AssetToken reference after deployment
+     * @notice Sets the RWAToken reference after deployment
      * @dev Called by the deployer script to wire up the token
      */
-    function setAssetToken(address _assetToken) external onlyOwner {
-        require(address(assetToken) == address(0), "AssetToken already set");
-        require(_assetToken != address(0), "Invalid token address");
-        assetToken = AssetToken(_assetToken);
+    function setRWAToken(address _rwaToken) external onlyOwner {
+        require(address(rwaToken) == address(0), "RWAToken already set");
+        require(_rwaToken != address(0), "Invalid token address");
+        rwaToken = RWAToken(_rwaToken);
     }
 
     /**
@@ -88,8 +89,12 @@ contract RWASovereignRollup is Ownable {
 
     /**
      * @notice Función de tokenización que simula ejecución en el Rollup Soberano
+     * @param assetId ID del activo RWA en el sistema ERC1155
+     * @param amount Cantidad de shares a tokenizar
+     * @param documentHash Hash del documento asociado
      */
     function requestTokenization(
+        uint256 assetId,
         uint256 amount,
         bytes32 documentHash
     ) external returns (uint256 requestId) {
@@ -100,7 +105,7 @@ contract RWASovereignRollup is Ownable {
         );
 
         requestId = uint256(
-            keccak256(abi.encodePacked(msg.sender, amount, block.timestamp))
+            keccak256(abi.encodePacked(msg.sender, assetId, amount, block.timestamp))
         );
 
         emit TokenizationRequested(
@@ -131,17 +136,20 @@ contract RWASovereignRollup is Ownable {
     // --- Funciones de Integración con DocumentRegistry ---
 
     function registerDocument(
-        bytes32 documentHash
+        uint256 assetId,
+        bytes32 documentHash,
+        string memory documentURI,
+        string memory documentType
     ) external onlyOwner returns (bytes32) {
-        return documentRegistry.registerDocument(documentHash);
+        return documentRegistry.registerDocument(assetId, documentHash, documentURI, documentType);
     }
 
-    function getDocumentRecord()
+    function getLatestDocument(uint256 assetId)
         external
         view
         returns (DocumentRegistry.DocumentRecord memory)
     {
-        return documentRegistry.getDocumentRecord(documentRegistry.RWA_ID());
+        return documentRegistry.getLatestDocument(assetId);
     }
 
     // --- Funciones Internas ---

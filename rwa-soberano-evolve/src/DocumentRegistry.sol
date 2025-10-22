@@ -1,175 +1,122 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.28;
 
-import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
+import {AccessControl} from "openzeppelin-contracts/contracts/access/AccessControl.sol";
+import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 
 /**
  * @title DocumentRegistry
- * @notice Registro inmutable de documentos legales del RWA con integración simulada a Celestia DA
- * @dev Almacena hashes de documentos y simula la publicación en la capa de disponibilidad de datos
+ * @notice Registro simple para documentos vinculados a activos tokenizados
  */
-contract DocumentRegistry is Ownable {
-    // --- Estructuras de Datos ---
+contract DocumentRegistry is AccessControl, Ownable {
+    bytes32 public constant REGISTRAR_ROLE = keccak256("REGISTRAR_ROLE");
+
     struct DocumentRecord {
+        uint256 assetId;
         bytes32 documentHash;
-        bytes32 daTransactionHash; // Hash simulado de la transacción en Celestia
-        uint256 timestamp;
-        address registeredBy;
+        string documentURI;
+        string documentType;
+        address submitter;
+        uint256 registeredAt;
     }
 
-    // --- Estado ---
-    mapping(uint256 => DocumentRecord) private _documentRecords;
-    uint256 public constant RWA_ID = 1;
+    mapping(uint256 => DocumentRecord[]) private _documentsByAsset;
+    mapping(uint256 => DocumentRecord) private _latestDocumentByAsset;
+    mapping(bytes32 => bool) private _registeredDocuments;
 
-    // --- Eventos ---
     event DocumentRegistered(
-        uint256 indexed rwaId,
+        uint256 indexed assetId,
         bytes32 indexed documentHash,
-        bytes32 indexed daTransactionHash,
-        uint256 timestamp,
-        address registeredBy
+        string documentURI,
+        string documentType,
+        address indexed submitter
     );
 
-    event DAPublished(
-        bytes32 indexed documentHash,
-        bytes32 indexed daBatchHash,
-        uint256 timestamp
-    );
-
-    // --- Constructor ---
-    constructor() Ownable(msg.sender) {}
-
-    // --- Funciones Públicas ---
+    constructor() Ownable(msg.sender) {
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(REGISTRAR_ROLE, msg.sender);
+    }
 
     /**
-     * @notice Registra un nuevo hash de documento para el RWA
-     * @param documentHash Hash SHA256 del documento legal
-     * @return daTransactionHash Hash simulado de la transacción en Celestia
+     * @notice Registra un nuevo documento asociado a un activo
      */
     function registerDocument(
-        bytes32 documentHash
-    ) external onlyOwner returns (bytes32 daTransactionHash) {
-        require(
-            documentHash != bytes32(0),
-            "DocumentRegistry: hash cannot be zero"
-        );
-        require(
-            _documentRecords[RWA_ID].timestamp == 0,
-            "DocumentRegistry: document already registered"
-        );
+        uint256 assetId,
+        bytes32 documentHash,
+        string memory documentURI,
+        string memory documentType
+    ) external onlyRole(REGISTRAR_ROLE) returns (bytes32) {
+        require(documentHash != bytes32(0), "Registry: invalid document hash");
+        require(!_registeredDocuments[documentHash], "Registry: document already registered");
+        require(bytes(documentURI).length > 0, "Registry: document URI required");
+        require(bytes(documentType).length > 0, "Registry: document type required");
 
-        // Simular hash de transacción en Celestia
-        daTransactionHash = keccak256(
-            abi.encodePacked(documentHash, block.timestamp, block.prevrandao)
-        );
-
-        _documentRecords[RWA_ID] = DocumentRecord({
+        DocumentRecord memory record = DocumentRecord({
+            assetId: assetId,
             documentHash: documentHash,
-            daTransactionHash: daTransactionHash,
-            timestamp: block.timestamp,
-            registeredBy: msg.sender
+            documentURI: documentURI,
+            documentType: documentType,
+            submitter: _msgSender(),
+            registeredAt: block.timestamp
         });
 
-        emit DocumentRegistered(
-            RWA_ID,
-            documentHash,
-            daTransactionHash,
-            block.timestamp,
-            msg.sender
-        );
+        _documentsByAsset[assetId].push(record);
+        _latestDocumentByAsset[assetId] = record;
+    _registeredDocuments[documentHash] = true;
 
-        // Simular publicación en Celestia DA
-        _simulateDAPublication(documentHash);
-
-        return daTransactionHash;
+        emit DocumentRegistered(assetId, documentHash, documentURI, documentType, _msgSender());
+        return documentHash;
     }
 
     /**
-     * @notice Actualiza el documento existente (solo para emergencias)
-     * @param newDocumentHash Nuevo hash del documento
+     * @notice Obtiene el documento más reciente de un activo
      */
-    function updateDocument(bytes32 newDocumentHash) external onlyOwner {
-        require(
-            newDocumentHash != bytes32(0),
-            "DocumentRegistry: hash cannot be zero"
-        );
-        require(
-            _documentRecords[RWA_ID].timestamp != 0,
-            "DocumentRegistry: no document to update"
-        );
-
-        bytes32 daTransactionHash = keccak256(
-            abi.encodePacked(newDocumentHash, block.timestamp, block.prevrandao)
-        );
-
-        _documentRecords[RWA_ID] = DocumentRecord({
-            documentHash: newDocumentHash,
-            daTransactionHash: daTransactionHash,
-            timestamp: block.timestamp,
-            registeredBy: msg.sender
-        });
-
-        emit DocumentRegistered(
-            RWA_ID,
-            newDocumentHash,
-            daTransactionHash,
-            block.timestamp,
-            msg.sender
-        );
-
-        _simulateDAPublication(newDocumentHash);
+    function getLatestDocument(uint256 assetId)
+        external
+        view
+        returns (DocumentRecord memory)
+    {
+        DocumentRecord memory record = _latestDocumentByAsset[assetId];
+        require(record.registeredAt != 0, "Registry: no document for asset");
+        return record;
     }
 
-    // --- Funciones de Consulta ---
-
-    function getDocumentRecord(
-        uint256 rwaId
-    ) external view returns (DocumentRecord memory) {
-        require(rwaId == RWA_ID, "DocumentRegistry: invalid RWA ID");
-        require(
-            _documentRecords[rwaId].timestamp != 0,
-            "DocumentRegistry: document not found"
-        );
-        return _documentRecords[rwaId];
+    /**
+     * @notice Obtiene el historial completo de documentos por activo
+     */
+    function getDocumentHistory(uint256 assetId)
+        external
+        view
+        returns (DocumentRecord[] memory)
+    {
+        return _documentsByAsset[assetId];
     }
 
-    function verifyDocument(
-        bytes32 documentHash,
-        uint256 rwaId
-    ) external view returns (bool) {
-        require(rwaId == RWA_ID, "DocumentRegistry: invalid RWA ID");
-        return _documentRecords[rwaId].documentHash == documentHash;
+    /**
+     * @notice Permite que el propietario otorgue permisos de registrador
+     */
+    function grantRegistrar(address account) external onlyOwner {
+        require(account != address(0), "Registry: zero address");
+    _grantRole(REGISTRAR_ROLE, account);
     }
 
-    // --- Funciones de Simulación Celestia DA ---
-
-    function simulateDABatchPublication(
-        bytes32[] calldata documentHashes
-    ) external onlyOwner returns (bytes32 daBatchHash) {
-        daBatchHash = keccak256(
-            abi.encodePacked(documentHashes, block.timestamp)
-        );
-
-        for (uint i = 0; i < documentHashes.length; i++) {
-            emit DAPublished(documentHashes[i], daBatchHash, block.timestamp);
-        }
-
-        return daBatchHash;
+    /**
+     * @notice Permite que el propietario revoque permisos de registrador
+     */
+    function revokeRegistrar(address account) external onlyOwner {
+        require(account != address(0), "Registry: zero address");
+        _revokeRole(REGISTRAR_ROLE, account);
     }
 
-    function calculateDocumentHash(
-        string memory documentUri
-    ) external pure returns (bytes32) {
-        return sha256(bytes(documentUri));
-    }
-
-    // --- Funciones Internas ---
-
-    function _simulateDAPublication(bytes32 documentHash) internal {
-        bytes32 daBatchHash = keccak256(
-            abi.encodePacked(documentHash, block.timestamp)
-        );
-
-        emit DAPublished(documentHash, daBatchHash, block.timestamp);
+    /**
+     * @inheritdoc AccessControl
+     */
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(AccessControl)
+        returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
     }
 }

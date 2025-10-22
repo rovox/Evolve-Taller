@@ -17,8 +17,8 @@ services:
     volumes:
       - celestia-data:/home/celestia
       - jwt-tokens:/shared/jwt
-      - ./celestia-start.sh:/start.sh:ro
-      - ./celestia-fund.sh:/fund.sh:ro
+      - ./scripts/celestia-start.sh:/start.sh:ro
+      - ./scripts/celestia-fund.sh:/fund.sh:ro
     environment:
       - CELESTIA_NETWORK=mocha
     command: [ "sh", "/start.sh" ]

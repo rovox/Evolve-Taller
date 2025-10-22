@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # celestia-fund.sh - Fund the Celestia wallet and get JWT token
 
 set -e

@@ -1,12 +1,19 @@
 [profile.default]
 src = "src"
 out = "out"
-libs = ["lib", "lib/openzeppelin-contracts"]
-solc = "0.8.24"
+libs = ["lib"]
+solc = "0.8.28"
 
+[profile.default.compiler]
+# Habilitar optimizador para reducir tamaño de contratos
+optimizer = true
+optimizer_runs = 200  # Aumenta a 1000+ si priorizas gas sobre tamaño
+# Para contratos muy grandes, usa via-ir
+# via_ir = true
 # Remappings para OpenZeppelin
 remappings = [
     "@openzeppelin/=lib/openzeppelin-contracts/",
+    "openzeppelin-contracts/=lib/openzeppelin-contracts/",
     "forge-std/=lib/forge-std/src/",
 ]
 
@@ -16,12 +23,24 @@ fs_permissions = [
     { access = "write", path = "./deployed-addresses.env" }
 ]
 
-# Configuracion para Celestia Mocha
+# Avoid compiling OpenZeppelin's own tests and harnesses
+ignored_paths = [
+    "lib/openzeppelin-contracts/test",
+    "lib/openzeppelin-contracts/certora",
+    "lib/openzeppelin-contracts/scripts",
+    "lib/openzeppelin-contracts/hardhat",
+    "lib/openzeppelin-contracts/docs",
+    "lib/openzeppelin-contracts/audits",
+    "lib/openzeppelin-contracts/.github",
+]
+
+# Configuracion para Celestia Mocha y Rollup local
 [rpc_endpoints]
+reth = "http://localhost:8545"  # puerto de reth
+localhost = "http://localhost:8545"
 # celestia = "https://rpc-mocha.pops.one/"
 # Alternativas si falla:
 # celestia = "https://celestia-mocha-rpc.publicnode.com:443"
-localhost = "http://localhost:8545"  # puerto de reth
 # celestia = "https://mocha-rpc.celenium.io/"
 
 [etherscan]

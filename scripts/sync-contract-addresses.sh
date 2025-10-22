@@ -3,9 +3,10 @@
 
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONTRACTS_DIR="$ROOT_DIR/rwa-soberano-evolve"
-FRONTEND_DIR="$ROOT_DIR/frontend"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+CONTRACTS_DIR="$REPO_ROOT/rwa-soberano-evolve"
+FRONTEND_DIR="$REPO_ROOT/frontend"
 ADDRESSES_FILE="$CONTRACTS_DIR/deployed-addresses.env"
 
 if [ ! -f "$ADDRESSES_FILE" ]; then

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # celestia-start.sh - Just start the Celestia node
 
 set -e

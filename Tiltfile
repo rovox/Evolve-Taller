@@ -8,6 +8,9 @@ config.define_bool('reth-only', args=False, usage='Run only Reth (disable full r
 
 cfg = config.parse()
 
+# Centralized scripts directory (update here if scripts move)
+SCRIPTS_DIR = './scripts'
+
 # Create shared network and JWT secret for all services
 local('docker network create rollup-network || true')
 
@@ -70,11 +73,16 @@ if not cfg.get('reth-only'):
         '''
         echo "🔑 Waiting for Celestia node to start..."
         
-        timeout 60 bash -c '
+        # Aumentar el timeout a 120 segundos (era 60 segundos)
+        timeout 120 bash -c '
         until docker exec celestia echo "Container ready" > /dev/null 2>&1; do
             echo "Waiting for container..."
             sleep 2
         done'
+        
+        # Dar tiempo adicional al nodo para inicializarse por completo
+        echo "⏳ Esperando inicialización completa del nodo Celestia..."
+        sleep 15
         
         echo "💰 Running funding and JWT setup..."
         docker exec celestia sh /fund.sh
@@ -109,95 +117,123 @@ if not cfg.get('reth-only'):
     docker_compose('./docker-compose.evolve.yml')
     dc_resource('rollup-init', labels=['rollkit'])
     dc_resource('rollkit-sequencer', labels=['rollkit'])
-    
-    
-    # Deploy RWA smart contracts to the rollup once the sequencer is up
-    local_resource('deploy-rwa-contracts',
+    local_resource('rollkit-ready',
         '''
-        set -euo pipefail
+        echo "⏳ Waiting for Rollkit RPC..."
 
-    RED="\033[0;31m"
-    YELLOW="\033[1;33m"
-    GREEN="\033[0;32m"
-    NC="\033[0m"
+        timeout 60 bash -c '
+        until curl -s http://localhost:7331 \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -d "{\"jsonrpc\":\"2.0\",\"method\":\"eth_blockNumber\",\"params\":[],\"id\":1}" \
+            | grep -q "result"; do
+            echo "Waiting for Rollkit RPC..."
+            sleep 3
+        done'
 
-        printf "🚀 Deploying RWA smart contracts...\\n"
-        cd rwa-soberano-evolve || exit 1
-        if command -v forge >/dev/null 2>&1; then
-            forge build
-        else
-            printf "%b❌ forge not found in PATH%b\\n" "$RED" "$NC"
-            exit 1
-        fi
-
-        PRIVATE_KEY=${PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}
-        printf "Using RPC: http://localhost:8545\\n"
-        if ! PRIVATE_KEY=$PRIVATE_KEY forge script script/DeployToRollup.s.sol --rpc-url http://localhost:8545 --broadcast --legacy; then
-            printf "%b❌ Deploy failed (see forge logs above)%b\\n" "$RED" "$NC"
-            exit 1
-        fi
-
-        if [ ! -f deployed-addresses.env ]; then
-            printf "%b❌ URGENTE: deployed-addresses.env no fue generado por el script%b\n" "$RED" "$NC"
-            printf "%bSugerencia:%b verifica fs_permissions en rwa-soberano-evolve/foundry.toml:\n" "$YELLOW" "$NC"
-            printf "  fs_permissions = [ { access = \"read\", path = \"./\" }, { access = \"write\", path = \"./deployed-addresses.env\" } ]\n"
-            exit 1
-        fi
-
-        printf "%b✅ Contracts deployed. Addresses:%b\\n" "$GREEN" "$NC"
-        cat deployed-addresses.env
+        echo "✅ Rollkit RPC ready"
         ''',
         resource_deps=['rollkit-sequencer'],
+        labels=['rollkit']
+    )
+    
+    
+    # Deploy RWA smart contracts to the rollup once the sequencer is up (delegates to scripts/deploy-rwa-contracts.sh)
+    local_resource('deploy-rwa-contracts',
+        '''
+        echo "🚀 Running deploy wrapper: %s/deploy-rwa-contracts.sh"
+        if [ -f %s/deploy-rwa-contracts.sh ]; then
+            chmod +x %s/deploy-rwa-contracts.sh
+            %s/deploy-rwa-contracts.sh || (echo "Deploy script failed" && exit 1)
+        else
+            echo "%s/deploy-rwa-contracts.sh not found"
+            exit 1
+        fi
+        ''' % (SCRIPTS_DIR, SCRIPTS_DIR, SCRIPTS_DIR, SCRIPTS_DIR, SCRIPTS_DIR),
+        resource_deps=['rollkit-ready'],
+        labels=['contracts']
+    )
+
+    # Run contract unit tests after deployment (delegates to scripts/run-contract-tests.sh)
+    local_resource('run-contract-tests',
+        '''
+        echo "🧪 Running contract tests wrapper: %s/run-contract-tests.sh"
+        if [ -f %s/run-contract-tests.sh ]; then
+            chmod +x %s/run-contract-tests.sh
+            %s/run-contract-tests.sh || (echo "Contract tests failed" && exit 1)
+        else
+            echo "%s/run-contract-tests.sh not found"
+            exit 1
+        fi
+        ''' % (SCRIPTS_DIR, SCRIPTS_DIR, SCRIPTS_DIR, SCRIPTS_DIR, SCRIPTS_DIR),
+        resource_deps=['deploy-rwa-contracts'],
         labels=['contracts']
     )
 
     # Run a quick integration test that exercises the deployed contracts
     local_resource('rwa-integration-test',
         '''
-        echo "🧪 Running RWA integration test..."
-        # Ensure script is executable and run it
-        if [ -f ./test-rwa-integration.sh ]; then
-            chmod +x ./test-rwa-integration.sh
-            ./test-rwa-integration.sh || (echo "Integration test failed" && exit 1)
+        echo "🧪 Running RWA integration test (%s/test-rwa-integration.sh)..."
+        if [ -f %s/test-rwa-integration.sh ]; then
+            chmod +x %s/test-rwa-integration.sh
+            %s/test-rwa-integration.sh || (echo "Integration test failed" && exit 1)
         else
-            echo "test-rwa-integration.sh not found in repo root"
+            echo "%s/test-rwa-integration.sh not found"
             exit 1
         fi
-        ''',
-        resource_deps=['deploy-rwa-contracts'],
+        ''' % (SCRIPTS_DIR, SCRIPTS_DIR, SCRIPTS_DIR, SCRIPTS_DIR, SCRIPTS_DIR),
+        resource_deps=['run-contract-tests'],
         labels=['contracts']
     )
 
-    # Sync contract addresses to frontend
-    local_resource('sync-frontend-addresses',
+    local_resource('evolve-integration-tests',
         '''
-        echo "📦 Syncing contract addresses to frontend..."
-        if [ -f ./sync-contract-addresses.sh ]; then
-            chmod +x ./sync-contract-addresses.sh
-            ./sync-contract-addresses.sh
-        else
-            echo "sync-contract-addresses.sh not found"
-            exit 1
+        echo "🧪 Running Evolve integration tests (rwa-soberano-evolve/test/evolve-integration.test.js)..."
+        cd rwa-soberano-evolve
+        if [ ! -d node_modules ]; then
+            echo "📦 Installing Node dependencies..."
+            npm install
         fi
+
+        export PRIVATE_KEY="${PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}"
+        export EVOLVE_RPC_URL="${EVOLVE_RPC_URL:-http://localhost:7331}"
+        export CELESTIA_RPC_URL="${CELESTIA_RPC_URL:-http://localhost:26658}"
+
+        npx mocha test/evolve-integration.test.js --reporter spec || (echo "Evolve integration tests failed" && exit 1)
         ''',
         resource_deps=['rwa-integration-test'],
+        labels=['contracts']
+    )
+
+    # Sync deployed contract addresses to frontend
+    local_resource('sync-frontend-addresses',
+        '''
+        echo "🔄 Syncing contract addresses to frontend (%s/sync-contract-addresses.sh)..."
+        if [ -f %s/sync-contract-addresses.sh ]; then
+            chmod +x %s/sync-contract-addresses.sh
+            %s/sync-contract-addresses.sh || (echo "Address sync failed" && exit 1)
+        else
+            echo "%s/sync-contract-addresses.sh not found"
+            exit 1
+        fi
+        ''' % (SCRIPTS_DIR, SCRIPTS_DIR, SCRIPTS_DIR, SCRIPTS_DIR, SCRIPTS_DIR),
+        resource_deps=['evolve-integration-tests'],
         labels=['frontend']
     )
 
-    # Start frontend dev server
+    # Start the frontend dev server
     local_resource('frontend-dev',
         '''
-        cd frontend
-        if [ ! -d node_modules ]; then
-            echo "📦 Installing frontend dependencies..."
-            npm install
+        echo "🌐 Starting frontend dev server (%s/start-frontend.sh)..."
+        if [ -f %s/start-frontend.sh ]; then
+            chmod +x %s/start-frontend.sh
+            %s/start-frontend.sh
+        else
+            echo "%s/start-frontend.sh not found, falling back to 'cd frontend && npm run dev'"
+            cd frontend && npm run dev
         fi
-        echo "🚀 Starting frontend dev server..."
-        npm run dev
-        ''',
+        ''' % (SCRIPTS_DIR, SCRIPTS_DIR, SCRIPTS_DIR, SCRIPTS_DIR, SCRIPTS_DIR),
         resource_deps=['sync-frontend-addresses'],
-        serve_cmd='cd frontend && npm run dev',
-        links=['http://localhost:5173'],
         labels=['frontend']
     )
 

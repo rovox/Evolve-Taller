@@ -1,24 +1,23 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.28;
 
-import {Script} from "forge-std/Script.sol";
-import {console} from "forge-std/console.sol";
-import {AssetToken} from "../src/AssetToken.sol";
-import {RWAVault} from "../src/RWAValut.sol";
+import "forge-std/Script.sol";
+import "../src/RWAToken.sol";
+import "../src/DividendDistributor.sol";
 
-contract Deploy is Script {
+contract DeployScript is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address underlyingAsset = vm.envAddress("UNDERLYING_ASSET");
-
         vm.startBroadcast(deployerPrivateKey);
 
-        AssetToken assetToken = new AssetToken();
-        RWAVault rwaVault = new RWAVault(underlyingAsset, address(assetToken));
+        // Desplegar RWAToken
+        RWAToken rwaToken = new RWAToken("ipfs://QmBase/");
+        console.log("RWAToken deployed at:", address(rwaToken));
 
-        vm.startBroadcast();
+        // Desplegar DividendDistributor
+        DividendDistributor distributor = new DividendDistributor(address(rwaToken));
+        console.log("DividendDistributor deployed at:", address(distributor));
 
-        console.log("AssetToken deployed at:", address(assetToken));
-        console.log("RWAVault deployed at:", address(rwaVault));
+        vm.stopBroadcast();
     }
 }

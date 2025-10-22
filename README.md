@@ -1,156 +1,342 @@
-# EV Demo - EV-Node + Celestia + Reth Stack
+# Evolve-Taller: RWA Tokenization Platform
 
-This demo runs a complete rollup development environment with Reth as the execution layer, Celestia as the data availability layer, and EV-Node as the sequencer.
+A complete Real World Assets (RWA) tokenization platform built on the Evolve + Celestia stack, featuring sovereign rollup technology for secure and efficient asset tokenization.
 
 ## Table of Contents
 
-- [Architecture Diagram](#architecture-diagram)
+- [Project Overview](#project-overview)
+- [Architecture](#architecture)
+- [MVP Status](#mvp-status)
 - [Prerequisites](#prerequisites)
 - [Quick Start](#quick-start)
-- [Load Testing](#load-testing)
-- [Stopping the Demo](#stopping-the-demo)
+- [Smart Contracts](#smart-contracts)
+- [Frontend](#frontend)
+- [Testing](#testing)
+- [Error Handling](#error-handling)
 - [Troubleshooting](#troubleshooting)
-- [Architecture](#architecture)
-- [Services Overview](#services-overview)
+- [Development](#development)
 
-## Architecture Diagram
+## Project Overview
 
-![Fullstack Application Architecture](./fullstack_app.svg)
+Evolve-Taller enables the tokenization of real world assets through a sovereign rollup architecture:
+
+- **Document Registry**: Secure document storage and verification system
+- **RWA Tokenization**: ERC1155-based asset tokenization with role-based access control
+- **Dividend Distribution**: Automated revenue distribution to token holders
+- **Sovereign Rollup**: Evolve-based rollup for scalable, secure transactions
+- **Data Availability**: Celestia network for decentralized data storage
+
+## Architecture
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Frontend      │    │   Smart         │    │   Sovereign     │
+│   (React/Vite)  │◄──►│   Contracts     │◄──►│   Rollup        │
+│                 │    │   (Foundry)     │    │   (Evolve)      │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         └───────────────────────┼───────────────────────┘
+                                 ▼
+                    ┌─────────────────┐
+                    │   Data          │
+                    │   Availability  │
+                    │   (Celestia)    │
+                    └─────────────────┘
+```
+
+### Services Overview
+
+| Service | Port | Description |
+|---------|------|-------------|
+| Reth RPC | 8545 | Ethereum execution layer |
+| Celestia RPC | 26658 | Data availability layer |
+| Rollup RPC | 7331 | Sovereign rollup sequencer |
+| Frontend | 5173 | React development server |
+| Tilt Dashboard | 10350 | Development orchestration |
+
+## MVP Status
+
+### ✅ Completed Features
+
+- **Smart Contracts**: Complete RWA tokenization suite
+  - DocumentRegistryV2: Document registration and verification
+  - RWAToken: ERC1155-based asset tokens with access control
+  - RWASovereignRollup: Rollup integration and orchestration
+  - DividendDistributor: Automated dividend distribution
+
+- **Frontend**: React application with Web3 integration
+  - System status monitoring
+  - Contract interaction interface
+  - MetaMask wallet integration
+
+- **Testing**: Comprehensive test coverage
+  - Unit tests for all smart contracts
+  - Integration tests for end-to-end flows
+  - Automated testing in CI/CD pipeline
+
+- **Development Environment**: Full-stack orchestration
+  - Tilt-based development workflow
+  - Docker Compose service management
+  - Automated deployment and testing
+
+### 🚧 In Development
+
+- Advanced frontend features (asset management UI)
+- Multi-asset portfolio tracking
+- Enhanced security audits
+- Production deployment configurations
+
+### 📋 Planned Features
+
+- Cross-chain asset bridging
+- Decentralized identity integration
+- Advanced compliance features
+- Mobile application support
 
 ## Prerequisites
 
 ### Required Software
 - **Docker**: Version 20.10+ with Docker Compose
 - **Tilt**: For development environment orchestration
-- **Go**: Version 1.21+ (required for spamoor load testing tool)
-- **curl** and **jq**: For testing endpoints
+- **Foundry**: For smart contract development and testing
+- **Node.js**: Version 18+ for frontend development
+- **MetaMask**: Browser extension for Web3 interaction
 
 ### Installation Commands
 
-#### Docker
+#### Docker & Tilt
 ```bash
-# macOS
-brew install docker
-# or install Docker Desktop from docker.com
+# Docker
+curl -fsSL https://get.docker.com -o get-docker.sh && sh get-docker.sh
 
-# Ubuntu/Debian
-curl -fsSL https://get.docker.com -o get-docker.sh
-sh get-docker.sh
-```
-
-#### Tilt
-```bash
-# macOS
-brew install tilt-dev/tap/tilt
-
-# Linux/Windows
+# Tilt
 curl -fsSL https://raw.githubusercontent.com/tilt-dev/tilt/master/scripts/install.sh | bash
 ```
 
-#### Go (for Spamoor)
+#### Foundry (Smart Contracts)
 ```bash
-# macOS
-brew install go
-
-# Ubuntu/Debian
-wget https://go.dev/dl/go1.21.0.linux-amd64.tar.gz
-sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz
-echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+curl -L https://foundry.paradigm.xyz | bash
 source ~/.bashrc
-
-# Windows
-# Download installer from https://golang.org/dl/
+foundryup
 ```
 
+#### Node.js (Frontend)
+```bash
+# Using nvm (recommended)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+source ~/.bashrc
+nvm install 18
+nvm use 18
+```
 
 ## Quick Start
 
-### 1. Start the Full Rollup Stack
+### 1. Clone and Setup
+```bash
+git clone <repository-url>
+cd evolve-taller
+```
+
+### 2. Start Development Environment
 ```bash
 tilt up
 ```
 
-This will start:
-- **Reth** (Execution Layer): `http://localhost:8545`
-- **Celestia** (Data Availability): `http://localhost:26658` 
-- **EV-Node** (Sequencer): `http://localhost:7331`
-- **Blockscout** (Explorer): `http://localhost:80`
+This launches:
+- Reth execution client
+- Celestia data availability node
+- Evolve sovereign rollup sequencer
+- Smart contract deployment and testing
+- Frontend development server
 
-### 2. Access Tilt Dashboard
-Open `http://localhost:10350` to monitor all services.
+### 3. Access Interfaces
+- **Frontend**: http://localhost:5173
+- **Tilt Dashboard**: http://localhost:10350
+- **Reth RPC**: http://localhost:8545
+- **Celestia RPC**: http://localhost:26658
+- **Rollup RPC**: http://localhost:7331
 
-### 3. Test the Stack
+### 4. Connect MetaMask
+Configure MetaMask to connect to `http://localhost:8545` with Chain ID `31337`.
+
+## Smart Contracts
+
+### Core Contracts
+
+#### DocumentRegistryV2
+- **Purpose**: Secure document registration and verification
+- **Features**: Access control, document history, metadata storage
+- **Key Functions**: `registerDocument()`, `verifyDocument()`, `getDocumentHistory()`
+
+#### RWAToken
+- **Purpose**: ERC1155-based RWA tokenization
+- **Features**: Role-based access, token minting, transfer restrictions
+- **Key Functions**: `mint()`, `burn()`, `setTokenRoles()`
+
+#### RWASovereignRollup
+- **Purpose**: Rollup orchestration and cross-contract integration
+- **Features**: Block commitment, tokenization requests, document verification
+- **Key Functions**: `commitBlock()`, `requestTokenization()`, `verifyDocument()`
+
+#### DividendDistributor
+- **Purpose**: Automated revenue distribution
+- **Features**: Percentage-based distribution, claim tracking
+- **Key Functions**: `createDividend()`, `claimDividend()`, `getClaimableAmount()`
+
+### Deployment
+Contracts are automatically deployed during `tilt up` and tested via the integrated test suite.
+
+## Frontend
+
+### Technology Stack
+- **React 18** with TypeScript
+- **Vite** for build tooling
+- **Wagmi** for Web3 integration
+- **MetaMask** for wallet connectivity
+
+### Key Components
+- **SystemStatus**: Monitors blockchain and contract health
+- **RWAInterface**: Main application interface for asset management
+
+### Development
 ```bash
-# Test Reth
-curl -s http://localhost:8545 \
-  -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
-  | jq .
-
-# Test EV-Node
-curl -s http://localhost:7331/status | jq .
+cd frontend
+npm install
+npm run dev
 ```
 
+## Testing
 
-## Load Testing
-
-1. Install the Spamoor in the `spamoor` directory:
+### Unit Tests
+Comprehensive Foundry-based unit tests for all smart contracts:
 ```bash
-cd spamoor
-make
-```
-2. Run the spamoor daemon to simulate high transaction volume:
-
-```bash
-./spamoor/bin/spamoor-daemon -h "http://localhost:8545" -p "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" --port 26678
+cd rwa-soberano-evolve
+forge test -vv
 ```
 
-The spamoor daemon:
-- Sends high-volume transactions to test network performance
-- Connects to the local Reth RPC endpoint
-- Uses a test private key for transaction signing
-- Runs on port 26678 for monitoring
-
-## Stopping the Demo
-
+### Integration Tests
+End-to-end testing via Tilt pipeline:
 ```bash
-tilt down
+tilt up  # Runs integration tests automatically
 ```
+
+### Test Coverage
+- Document registration and verification flows
+- Token minting and transfer operations
+- Dividend distribution calculations
+- Access control and permission systems
+- Error condition handling
+
+## Error Handling
+
+### Smart Contract Errors
+
+#### Access Control Violations
+- **Error**: `AccessControlUnauthorizedAccount`
+- **Cause**: Insufficient permissions for operation
+- **Resolution**: Verify caller has appropriate role (ADMIN, MINTER, etc.)
+
+#### Invalid Operations
+- **Error**: `InvalidOperation`
+- **Cause**: Contract state doesn't allow operation
+- **Resolution**: Check contract preconditions and state
+
+#### Insufficient Balance
+- **Error**: `InsufficientBalance`
+- **Cause**: User lacks tokens for operation
+- **Resolution**: Verify token holdings before operations
+
+### Frontend Errors
+
+#### Wallet Connection Issues
+- **Error**: "MetaMask not detected"
+- **Resolution**: Install MetaMask extension and refresh page
+
+#### Network Mismatch
+- **Error**: "Chain ID mismatch"
+- **Resolution**: Switch MetaMask to local network (Chain ID: 31337)
+
+#### Transaction Failures
+- **Error**: "Transaction reverted"
+- **Resolution**: Check contract error messages and gas limits
+
+### Infrastructure Errors
+
+#### Service Unavailability
+- **Error**: Connection refused on service ports
+- **Resolution**: Check Tilt dashboard for service status
+
+#### Docker Issues
+- **Error**: Container startup failures
+- **Resolution**: Check Docker resources and port availability
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Port conflicts**: Ensure ports 8545, 8546, 8551, 7331, 26658, 80, 4000 are available
-2. **Docker network errors**: Run `docker network create rollup-network` manually
-3. **Permission issues**: Ensure Docker daemon is running and accessible
+1. **Port Conflicts**
+   ```bash
+   # Check port usage
+   lsof -i :8545,7331,26658,5173
+
+   # Free ports if needed
+   tilt down
+   docker system prune
+   ```
+
+2. **Contract Deployment Failures**
+   ```bash
+   # Manual deployment
+   cd rwa-soberano-evolve
+   forge script script/Deploy.s.sol --rpc-url reth --broadcast
+   ```
+
+3. **Frontend Build Issues**
+   ```bash
+   cd frontend
+   rm -rf node_modules package-lock.json
+   npm install
+   ```
+
+4. **Test Failures**
+   ```bash
+   # Run specific test
+   forge test --match-test testFunctionName -vv
+   ```
 
 ### Clean Reset
 ```bash
 tilt down
 docker system prune -a
 docker volume prune
+rm -rf rwa-soberano-evolve/cache rwa-soberano-evolve/out
 ```
 
-## Architecture
+## Development
 
-- **Reth**: High-performance Ethereum execution client
-- **EV-Node**: Sovereign rollup sequencer built on Evolve
-- **Celestia**: Modular data availability network (Mocha testnet)
-- **Docker Compose**: Service orchestration across three compose files
+### Project Structure
+```
+evolve-taller/
+├── rwa-soberano-evolve/     # Smart contracts (Foundry)
+├── frontend/                # React application
+├── scripts/                 # Deployment and utility scripts
+├── chain/                   # Network configuration
+├── Tiltfile                 # Development orchestration
+└── docker-compose.*.yml     # Service definitions
+```
 
-## Services Overview
+### Contributing
+1. Create feature branch from `main`
+2. Add tests for new functionality
+3. Update documentation as needed
+4. Submit pull request with Tilt validation
 
-| Service | Port | Description |
-|---------|------|-------------|
-| Reth RPC | 8545 | JSON-RPC endpoint |
-| Reth WS | 8546 | WebSocket endpoint |
-| Reth Auth | 8551 | Engine API endpoint |
-| Reth Metrics | 9001 | Prometheus metrics |
-| Celestia RPC | 26658 | Data availability RPC |
-| EV-Node RPC | 7331 | Sequencer RPC |
-| EV-Node P2P | 7676 | Peer-to-peer |
-| EV-Node Metrics | 26660 | Prometheus metrics |
-| Blockscout Web | 80 | Block explorer (nginx proxy) |
-| Blockscout API | 4000 | Direct API access |
+### Key Workflows
+- **Development**: `tilt up` for full environment
+- **Testing**: `forge test` for contract tests
+- **Deployment**: Scripts in `scripts/` directory
+- **Frontend**: `npm run dev` in `frontend/` directory
+
+---
+
+**Note**: This is an MVP implementation. Production deployment requires additional security audits, testing, and infrastructure considerations.
