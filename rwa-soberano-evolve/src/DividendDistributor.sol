@@ -33,7 +33,7 @@ contract DividendDistributor is Ownable {
         uint256 amount
     );
 
-    constructor(address _rwaTokenAddress) Ownable(msg.sender) {
+    constructor(address payable _rwaTokenAddress) Ownable(msg.sender) {
         rwaToken = RWAToken(_rwaTokenAddress);
     }
 
@@ -66,7 +66,7 @@ contract DividendDistributor is Ownable {
         );
 
         Dividend storage dividend = dividends[_assetId][_dividendIndex];
-        uint256 percentage = rwaToken.getSharePercentage(_assetId, msg.sender);
+        uint256 percentage = rwaToken.getShareholderPercentage(_assetId, msg.sender);
 
         require(percentage > 0, "No shares in this asset");
         require(

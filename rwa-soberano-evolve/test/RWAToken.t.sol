@@ -4,6 +4,7 @@ pragma solidity ^0.8.28;
 import "forge-std/Test.sol";
 import "../src/RWAToken.sol";
 import "../src/DividendDistributor.sol";
+import "../src/libraries/RWAStorage.sol";
 
 contract RWATokenTest is Test {
     RWAToken public rwaToken;
@@ -17,7 +18,7 @@ contract RWATokenTest is Test {
     function setUp() public {
         vm.startPrank(owner);
         rwaToken = new RWAToken("ipfs://QmBase/");
-        dividendDistributor = new DividendDistributor(address(rwaToken));
+        dividendDistributor = new DividendDistributor(payable(address(rwaToken)));
         vm.stopPrank();
     }
 
@@ -33,13 +34,13 @@ contract RWATokenTest is Test {
             "ipfs://QmHash123"
         );
 
-        (string memory name, , string memory assetType, uint256 totalShares, uint256 valueInUSD, bool active, ) = rwaToken.getAssetInfo(assetId);
+        RWAStorage.Asset memory asset = rwaToken.getAsset(assetId);
         
-        assertEq(name, "Departamento Lujo");
-        assertEq(assetType, "Departamento");
-        assertEq(totalShares, 1000);
-        assertEq(valueInUSD, 500000);
-        assertEq(active, true);
+        assertEq(asset.name, "Departamento Lujo");
+        assertEq(asset.assetType, "Departamento");
+        assertEq(asset.totalShares, 1000);
+        assertEq(asset.valueInUSD, 500000);
+        assertEq(asset.active, true);
         
         vm.stopPrank();
     }
@@ -62,7 +63,7 @@ contract RWATokenTest is Test {
         uint256 balance = rwaToken.balanceOf(alice, assetId);
         assertEq(balance, sharesToMint);
 
-        uint256 percentage = rwaToken.getSharePercentage(assetId, alice);
+        uint256 percentage = rwaToken.getShareholderPercentage(assetId, alice);
         assertEq(percentage, 50);
 
         vm.stopPrank();
@@ -193,7 +194,7 @@ contract RWATokenTest is Test {
         rwaToken.mintShares(alice, assetId, 100 * 10**18, "");
         rwaToken.burnShares(alice, assetId, 50 * 10**18);
 
-        RWAToken.ShareholderTransaction[] memory history = rwaToken.getTransactionHistory(assetId);
+        RWAStorage.ShareholderTransaction[] memory history = rwaToken.getTransactionHistory(assetId);
         
         assertEq(history.length, 2);
         assertEq(keccak256(abi.encodePacked(history[0].transactionType)), keccak256(abi.encodePacked("mint")));

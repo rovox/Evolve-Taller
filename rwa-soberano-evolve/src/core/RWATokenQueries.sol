@@ -12,7 +12,47 @@ abstract contract RWATokenQueries is RWATokenCore {
     function getAsset(uint256 _assetId) public view returns (RWAStorage.Asset memory) {
         return assets[_assetId];
     }
-    
+    /// @notice Get transaction history for an asset
+    /// @param _assetId Asset identifier
+    /// @return Array of transaction records
+    function getTransactionHistory(uint256 _assetId) 
+        public 
+        view 
+        returns (RWAStorage.ShareholderTransaction[] memory) 
+    {
+        // Implementation depends on how you're storing transaction history
+        // This is just a placeholder
+        return assetTransactions[_assetId];
+    }    mapping(uint256 => RWAStorage.ShareholderTransaction[]) public assetTransactions;
+
+    /// @notice Get the total number of assets created
+    /// @return The total count of assets
+    function getTotalAssets() public view returns (uint256) {
+        return assetCounter;
+    }
+
+    /// @notice Check if an asset is active
+    /// @param _assetId Asset identifier
+    /// @return True if the asset is active, false otherwise
+    function isAssetActive(uint256 _assetId) public view returns (bool) {
+        return assets[_assetId].active;
+    }
+
+    /// @notice Get the IPFS metadata hash for an asset
+    /// @param _assetId Asset identifier
+    /// @return IPFS metadata hash
+    function getAssetMetadata(uint256 _assetId) public view returns (string memory) {
+        return assets[_assetId].ipfsMetadata;
+    }
+
+    /// @notice Get the creation timestamp of an asset
+    /// @param _assetId Asset identifier
+    /// @return Unix timestamp of asset creation
+    function getAssetCreationTime(uint256 _assetId) public view returns (uint256) {
+        return assets[_assetId].createdAt;
+    }
+
+
     /// @notice Get list of shareholders for an asset
     /// @param _assetId Asset identifier
     /// @return Array of shareholder addresses

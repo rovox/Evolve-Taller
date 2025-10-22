@@ -38,7 +38,7 @@ contract DividendDistributorTest is Test {
         nonShareholder = makeAddr("nonShareholder");
 
         rwaToken = new RWAToken("ipfs://QmBase/");
-        distributor = new DividendDistributor(address(rwaToken));
+        distributor = new DividendDistributor(payable(address(rwaToken)));
 
         // Create asset and mint shares
         rwaToken.createAsset(ASSET_NAME, ASSET_DESCRIPTION, ASSET_TYPE, TOTAL_SHARES, 1000000, "ipfs://metadata");

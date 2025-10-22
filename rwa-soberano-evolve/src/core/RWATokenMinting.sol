@@ -23,6 +23,25 @@ abstract contract RWATokenMinting is RWATokenCore {
         _mintSharesInternal(to, assetId, amount, data);
     }
     
+    /// @notice Batch mint shares to multiple addresses for the same asset
+    /// @param recipients Array of recipient addresses
+    /// @param assetId Asset identifier
+    /// @param amounts Array of amounts to mint to each recipient
+    /// @param data Additional data
+    function mintSharesBatch(
+        address[] memory recipients,
+        uint256 assetId,
+        uint256[] memory amounts,
+        bytes memory data
+    ) public onlyAssetManager assetExists(assetId) {
+        RWAValidation.requireNotEmpty(recipients.length);
+        RWAValidation.requireArrayMatch(recipients.length, amounts.length);
+        
+        for (uint256 i = 0; i < recipients.length; i++) {
+            _mintSharesInternal(recipients[i], assetId, amounts[i], data);
+        }
+    }
+    
     /// @notice Batch mint shares to an address
     /// @param to Recipient address
     /// @param ids Array of asset identifiers
@@ -64,6 +83,14 @@ abstract contract RWATokenMinting is RWATokenCore {
     /// @param amount Amount of shares to burn
     function burnShares(uint256 assetId, uint256 amount) public {
         _burnInternal(msg.sender, assetId, amount, "");
+    }
+    
+    /// @notice Burn shares from any address (admin only)
+    /// @param from Address to burn from
+    /// @param assetId Asset identifier
+    /// @param amount Amount of shares to burn
+    function burnShares(address from, uint256 assetId, uint256 amount) public onlyAssetManager {
+        _burnInternal(from, assetId, amount, "");
     }
     
     /// @notice Burn shares from an address (with approval)

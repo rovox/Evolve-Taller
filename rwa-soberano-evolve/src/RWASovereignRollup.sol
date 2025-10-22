@@ -54,7 +54,7 @@ contract RWASovereignRollup is Ownable {
      * @notice Sets the RWAToken reference after deployment
      * @dev Called by the deployer script to wire up the token
      */
-    function setRWAToken(address _rwaToken) external onlyOwner {
+    function setRWAToken(address payable _rwaToken) external onlyOwner {
         require(address(rwaToken) == address(0), "RWAToken already set");
         require(_rwaToken != address(0), "Invalid token address");
         rwaToken = RWAToken(_rwaToken);

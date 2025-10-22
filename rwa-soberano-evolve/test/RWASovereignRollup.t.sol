@@ -37,7 +37,7 @@ contract RWASovereignRollupTest is Test {
         rwaToken = new RWAToken("ipfs://QmBase/");
 
         // Set RWAToken in rollup
-        rollup.setRWAToken(address(rwaToken));
+        rollup.setRWAToken(payable(address(rwaToken)));
     }
 
     function test_Constructor() public {
@@ -52,14 +52,14 @@ contract RWASovereignRollupTest is Test {
         address tokenAddress = makeAddr("token");
 
         vm.prank(owner);
-        newRollup.setRWAToken(tokenAddress);
+        newRollup.setRWAToken(payable(tokenAddress));
 
         assertEq(address(newRollup.rwaToken()), tokenAddress);
     }
 
     function test_SetRWAToken_RevertIfAlreadySet() public {
         vm.expectRevert("RWAToken already set");
-        rollup.setRWAToken(makeAddr("anotherToken"));
+        rollup.setRWAToken(payable(makeAddr("anotherToken")));
     }
 
     function test_SetRWAToken_RevertIfZeroAddress() public {
@@ -67,7 +67,7 @@ contract RWASovereignRollupTest is Test {
 
         vm.prank(owner);
         vm.expectRevert("Invalid token address");
-        newRollup.setRWAToken(address(0));
+        newRollup.setRWAToken(payable(address(0)));
     }
 
     function test_SetRWAToken_RevertIfNotOwner() public {
@@ -75,7 +75,7 @@ contract RWASovereignRollupTest is Test {
 
         vm.prank(user);
         vm.expectRevert();
-        newRollup.setRWAToken(address(rwaToken));
+        newRollup.setRWAToken(payable(address(rwaToken)));
     }
 
     function test_Registry_ReturnsDocumentRegistry() public {

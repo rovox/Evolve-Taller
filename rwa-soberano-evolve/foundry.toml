@@ -17,7 +17,17 @@ remappings = [
     '@openzeppelin/=lib/openzeppelin-contracts/',
     '@forge-std/=lib/forge-std/src/'
 ]
-
+ignored_error_codes = []
+# Avoid compiling OpenZeppelin's own tests and harnesses
+ignored_paths = [
+    "lib/openzeppelin-contracts/test",
+    "lib/openzeppelin-contracts/certora",
+    "lib/openzeppelin-contracts/scripts",
+    "lib/openzeppelin-contracts/hardhat",
+    "lib/openzeppelin-contracts/docs",
+    "lib/openzeppelin-contracts/audits",
+    "lib/openzeppelin-contracts/.github",
+]
 [profile.size-optimized]
 optimizer = true
 optimizer_runs = 1
@@ -32,17 +42,6 @@ fs_permissions = [
     { access = "read", path = "." },
     { access = "write", path = "." },
     { access = "write", path = "./deployed-addresses.env" }
-]
-
-# Avoid compiling OpenZeppelin's own tests and harnesses
-ignored_paths = [
-    "lib/openzeppelin-contracts/test",
-    "lib/openzeppelin-contracts/certora",
-    "lib/openzeppelin-contracts/scripts",
-    "lib/openzeppelin-contracts/hardhat",
-    "lib/openzeppelin-contracts/docs",
-    "lib/openzeppelin-contracts/audits",
-    "lib/openzeppelin-contracts/.github",
 ]
 
 # Configuracion para Celestia Mocha y Rollup local

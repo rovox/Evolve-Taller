@@ -15,7 +15,7 @@ contract DeployScript is Script {
         console.log("RWAToken deployed at:", address(rwaToken));
 
         // Desplegar DividendDistributor
-        DividendDistributor distributor = new DividendDistributor(address(rwaToken));
+        DividendDistributor distributor = new DividendDistributor(payable(address(rwaToken)));
         console.log("DividendDistributor deployed at:", address(distributor));
 
         vm.stopBroadcast();

@@ -37,17 +37,9 @@ npm install ethers@^5.7.0 wagmi viem
 
 ### 2. Copiar ABIs
 
-Los ABIs se generan automáticamente después de compilar:
+Los ABIs se generan automáticamente después de compilar los contratos con `forge build`. Los scripts auxiliares en `scripts/` y `rwa-soberano-evolve/script/` se encargan de copiar los ABIs necesarios al directorio `frontend/src/abis/`.
 
-```bash
-cd ../rwa-soberano-evolve
-forge build
-
-# Copiar ABIs al frontend
-cp out/RWAToken.sol/RWAToken.json ../frontend/src/abis/
-cp out/DividendDistributor.sol/DividendDistributor.json ../frontend/src/abis/
-cp out/DocumentRegistry.sol/DocumentRegistry.json ../frontend/src/abis/
-```
+Por ejemplo, el script `deploy-rwa-contracts.sh` ya incluye la lógica para copiar los ABIs relevantes. Asegúrate de que `frontend/src/abis/index.ts` importe los nombres de archivo correctos si los nombres de los contratos cambian.
 
 ### 3. Configurar Direcciones
 

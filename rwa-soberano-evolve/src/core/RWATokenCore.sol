@@ -49,7 +49,7 @@ abstract contract RWATokenCore is ERC1155, Ownable, AccessControl {
         );
     }
     
-    function _checkAssetExists(uint256 _assetId) private view {
+    function _checkAssetExists(uint256 _assetId) internal view {
         require(_assetId < assetCounter, "Asset does not exist");
         require(assets[_assetId].active, "Asset is not active");
     }
