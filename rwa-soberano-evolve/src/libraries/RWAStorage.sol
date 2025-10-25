@@ -4,17 +4,17 @@ pragma solidity ^0.8.28;
 library RWAStorage {
     struct Asset {
         uint256 assetId;
+        uint256 pricePerShareWei;
+        uint256 totalShares;
+        uint256 valueInUsd;
+        uint256 createdAt;
         string name;
         string description;
         string assetType;
-        uint256 totalShares;
-        uint256 valueInUSD;
-        address[] shareholders;
-        bool active;
         string ipfsMetadata;
-        uint256 createdAt;
+        address[] shareholders;
         address paymentToken;
-        uint256 pricePerShareWei;
+        bool active;
         bool saleActive;
     }
 

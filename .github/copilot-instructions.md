@@ -80,7 +80,7 @@ Patterns to reuse (concrete examples)
 
 Assumptions an agent can make
 - Local RPC: `http://localhost:8545` (reth). Sequencer RPC: `http://localhost:7331`.
-- Chain IDs in scripts: 31337 and 1234. `foundry.toml` contains useful RPC aliases; use them instead of hard-coded URLs.
+- Chain ID for local development: 1234. `foundry.toml` contains useful RPC aliases; use them instead of hard-coded URLs.
 - Secrets (`PRIVATE_KEY`, JWTs) are injected via Tilt into `/shared`; do not embed secrets in code.
 
 If any rule or workflow here is unclear, tell me which area (deploy, ABIs, owner-routing, or Tilt) and I will expand with exact code/script snippets.

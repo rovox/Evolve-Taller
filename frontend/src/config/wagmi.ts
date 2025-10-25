@@ -3,7 +3,7 @@ import { createConfig, http } from 'wagmi'
 import { injected, metaMask } from 'wagmi/connectors'
 
 export const evolveLocalnet = {
-  id: 31337,
+  id: 1234,
   name: 'Evolve Local',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {

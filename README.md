@@ -229,7 +229,7 @@ Automation: there are helper scripts in `scripts/` and `rwa-soberano-evolve/scri
 - **Rollup RPC**: http://localhost:7331
 
 ### 4. Connect MetaMask
-Configure MetaMask to connect to `http://localhost:8545` with Chain ID `31337`.
+Configure MetaMask to connect to `http://localhost:8545` with Chain ID `1234`.
 
 ## Key Developer Workflows
 

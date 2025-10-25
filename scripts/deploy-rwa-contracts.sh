@@ -69,9 +69,71 @@ if [ ! -f deployed-addresses.env ]; then
 fi
 
 printf "%b✅ Contracts deployed. Addresses:%b\n" "$GREEN" "$NC"
+
 cat deployed-addresses.env
 
+
+
 # Validate addresses format
-if ! grep -qE '^[A-Z_]+=(0x[a-fA-F0-9]{40})$' deployed-addresses.env; then
+
+if ! grep -qE '^[A-Z_]+=(0x[a-fA-F0-9]{40}) deployed-addresses.env; then
+
   printf "%b⚠️  Warning: deployed-addresses.env may have incorrect format%b\n" "$YELLOW" "$NC"
+
 fi
+
+
+
+# Copy ABIs to frontend
+
+printf "\n📦 Copying ABIs to frontend/src/abis/...\n"
+
+FRONTEND_ABIS_DIR="$REPO_ROOT/frontend/src/abis"
+
+mkdir -p "$FRONTEND_ABIS_DIR"
+
+
+
+# Define ABIs to copy
+
+ABIS_TO_COPY=(
+
+  "RWAToken.sol/RWAToken.json"
+
+  "DocumentRegistry.sol/DocumentRegistry.json"
+
+  "DividendDistributor.sol/DividendDistributor.json"
+
+  "RWASovereignRollup.sol/RWASovereignRollup.json"
+
+)
+
+
+
+for ABI_FILE in "${ABIS_TO_COPY[@]}"; do
+
+  SRC_PATH="out/$ABI_FILE"
+
+  DEST_PATH="$FRONTEND_ABIS_DIR/$(basename "$ABI_FILE")"
+
+  if [ -f "$SRC_PATH" ]; then
+
+    cp "$SRC_PATH" "$DEST_PATH"
+
+    printf "   ✅ Copied %s\n" "$(basename "$ABI_FILE")"
+
+  else
+
+    printf "   %b❌ Warning: ABI file not found: %s%b\n" "$YELLOW" "$SRC_PATH" "$NC"
+
+  fi
+
+done
+
+
+
+printf "%b✅ ABIs copied to frontend.%b\n" "$GREEN" "$NC"
+
+
+
+cd "$REPO_ROOT" # Return to repo root

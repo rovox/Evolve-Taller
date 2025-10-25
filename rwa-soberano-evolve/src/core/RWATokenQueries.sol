@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import "./RWATokenCore.sol";
+import {RWATokenCore} from "./RWATokenCore.sol";
 
 abstract contract RWATokenQueries is RWATokenCore {
     using RWAMath for uint256;

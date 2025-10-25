@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import "./core/RWATokenQueries.sol";
-import "./extensions/RWATokenSales.sol";
-import "./extensions/RWATokenAdmin.sol";
+import {RWATokenQueries} from "./core/RWATokenQueries.sol";
+import {RWATokenSales} from "./extensions/RWATokenSales.sol";
+import {RWATokenAdmin} from "./extensions/RWATokenAdmin.sol";
 
 /// @title RWA Tokenization Contract
 /// @notice Tokenizes Real World Assets using ERC1155 with modular architecture
