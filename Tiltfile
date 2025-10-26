@@ -110,6 +110,98 @@ if not cfg.get('reth-only'):
     dc_resource('rollup-init', labels=['rollkit'])
     dc_resource('rollkit-sequencer', labels=['rollkit'])
     
+    # Export rollkit.env from docker volume to host for tests (namespace discovery)
+    local_resource('export-rollkit-env',
+        '''
+        set -e
+        echo "📤 Exporting rollkit.env from docker volume to host..."
+        # copy from the shared jwt-tokens volume where /shared is mounted
+        docker run --rm -v jwt-tokens:/shared -v "$PWD":/host alpine:3.18 \
+            sh -c 'if [ -f /shared/rollkit.env ]; then cp /shared/rollkit.env /host/rollkit.env && echo "✅ rollkit.env exported to host"; else echo "⚠ rollkit.env not found in volume yet"; fi'
+        # show the namespace if present
+        if [ -f ./rollkit.env ]; then
+            echo "🔎 Host rollkit.env:" && sed -n '1,120p' ./rollkit.env || true
+            echo ""
+            echo "📛 DA_NAMESPACE (host):" && grep -E '^DA_NAMESPACE=' ./rollkit.env | cut -d'=' -f2- || echo "(not set)"
+        else
+            echo "⚠ ./rollkit.env missing on host"
+        fi
+        ''',
+        resource_deps=['rollup-init'],
+        labels=['rollkit']
+    )
+
+    # Simple namespace log presenter for quick checks in Tilt UI
+    local_resource('show-da-namespace',
+        '''
+        if [ -f ./rollkit.env ]; then
+            echo "📛 DA_NAMESPACE from ./rollkit.env:" && grep -E '^DA_NAMESPACE=' ./rollkit.env | cut -d'=' -f2-
+        else
+            echo "⚠ ./rollkit.env not found (run export-rollkit-env or wait for rollup-init)"
+        fi
+        ''',
+        resource_deps=['export-rollkit-env'],
+        labels=['rollkit']
+    )
+
+    # Show key Rollkit config from rollkit.env for visibility
+    local_resource('show-rollkit-config',
+        '''
+        if [ -f ./rollkit.env ]; then
+            echo "🧭 Rollkit config from ./rollkit.env"
+            grep -E '^(EVM_GENESIS_HASH|EVM_BLOCK_TIME)=' ./rollkit.env || echo "(keys not found)"
+        else
+            echo "⚠ ./rollkit.env not found (export may not have completed yet)"
+        fi
+        ''',
+        resource_deps=['export-rollkit-env'],
+        labels=['rollkit']
+    )
+
+    # Engine API health-check: validate Reth authrpc (8551) and EV-Node connectivity hints
+    local_resource('engine-health',
+        '''
+        set -e
+        echo "🩺 Checking Engine API (Reth authrpc on 8551)"
+        # Read JWT secret from docker volume
+        JWT=$(docker run --rm -v jwt-tokens:/shared alpine:3.18 sh -c 'cat /shared/reth-jwt-secret.txt' 2>/dev/null || true)
+        if [ -z "$JWT" ]; then
+            echo "⚠ Could not read JWT from volume jwt-tokens:/shared/reth-jwt-secret.txt"
+        else
+            echo "🔑 JWT diagnostic: length=${#JWT} bytes, first 12 chars: ${JWT:0:12}..."
+            # Try a basic engine method
+            RESP=$(curl -s -X POST http://localhost:8551 \
+                -H "Authorization: Bearer $JWT" \
+                -H "Content-Type: application/json" \
+                -d '{"jsonrpc":"2.0","method":"engine_exchangeCapabilities","params":[],"id":1}')
+            if echo "$RESP" | grep -q 'result'; then
+                echo "✅ Engine API responded to engine_exchangeCapabilities"
+                command -v jq >/dev/null 2>&1 && echo "$RESP" | jq -r '.result | @json' || echo "$RESP"
+            else
+                echo "⚠ engine_exchangeCapabilities not supported or failed. Trying fallback: engine_exchangeTransitionConfigurationV1..."
+                FALLBACK=$(curl -s -X POST http://localhost:8551 \
+                    -H "Authorization: Bearer $JWT" \
+                    -H "Content-Type: application/json" \
+                    -d '{"jsonrpc":"2.0","method":"engine_exchangeTransitionConfigurationV1","params":[],"id":1}')
+                if echo "$FALLBACK" | grep -q 'result'; then
+                    echo "✅ Engine API responded to engine_exchangeTransitionConfigurationV1"
+                    command -v jq >/dev/null 2>&1 && echo "$FALLBACK" | jq -r '.result | @json' || echo "$FALLBACK"
+                else
+                    echo "❌ Engine API did not respond to either method. Raw: $RESP $FALLBACK"
+                fi
+            fi
+        fi
+
+        echo "\n🌐 Checking direct connectivity from rollkit-evm-single to reth-node:8551 (inside Docker network)"
+        docker exec rollkit-evm-single sh -c 'apk add --no-cache curl >/dev/null 2>&1; curl -s -X POST http://reth-node:8551 -H "Content-Type: application/json" -d "{\"jsonrpc\":\"2.0\",\"method\":\"engine_exchangeCapabilities\",\"params\":[],\"id\":1}"' 2>/dev/null | grep -q 'result' && echo "✅ rollkit-evm-single can reach reth-node:8551 (engine_exchangeCapabilities)" || echo "❌ rollkit-evm-single cannot reach reth-node:8551 or method not supported"
+
+        echo "\n📝 rollkit-evm-single recent logs (engine related):"
+        docker logs --tail 80 rollkit-evm-single 2>/dev/null | grep -Ei 'engine|reth|payload|connected|authrpc' || docker logs --tail 40 rollkit-evm-single 2>/dev/null || true
+        ''',
+        resource_deps=['reth-ready', 'rollkit-sequencer', 'export-rollkit-env'],
+        labels=['rollkit']
+    )
+    
     
     # Deploy RWA smart contracts to the rollup once the sequencer is up
     local_resource('deploy-rwa-contracts',
@@ -164,7 +256,7 @@ if not cfg.get('reth-only'):
             exit 1
         fi
         ''',
-        resource_deps=['deploy-rwa-contracts'],
+        resource_deps=['deploy-rwa-contracts', 'export-rollkit-env'],
         labels=['contracts']
     )
 

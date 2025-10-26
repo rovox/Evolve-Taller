@@ -1,0 +1,24 @@
+{
+  "name": "evolve-taller",
+  "version": "1.0.0",
+  "description": "This project provides a complete development environment for a full-stack decentralized application (dApp) running on a sovereign rollup. It includes a React-based frontend, Solidity smart contracts for Real World Assets (RWAs), and a local rollup stack using Evolve, Celestia, and Reth.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rovox/Evolve-Taller.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/rovox/Evolve-Taller/issues"
+  },
+  "homepage": "https://github.com/rovox/Evolve-Taller#readme",
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "ethers": "^6.15.0"
+  }
+}

@@ -36,6 +36,7 @@ export default App*/
 
 import RWAInterface from './components/RWAInterface'
 import SystemStatus from './components/SystemStatus'
+import RWADemo from './components/RWADemo'
 import { Toaster } from 'react-hot-toast'
 import './App.css'
 
@@ -71,6 +72,7 @@ function App() {
         </div>
 
         <SystemStatus rpcUrl="http://localhost:8545" />
+        <RWADemo />
         <RWAInterface />
       </div>
       

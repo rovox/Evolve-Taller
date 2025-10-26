@@ -86,16 +86,16 @@ simulate_call() {
 
 # --- Celestia DA: utilidades para verificación ---
 resolve_namespace() {
-    # Priority order: explicit envs, rollkit files.
+    # Priority order: explicit envs, then local rollkit.env (host), then /shared rollkit.env
     for var in EV_NAMESPACE NAMESPACE_ID ROLLKIT_NAMESPACE_ID DA_NAMESPACE; do
         if [ -n "${!var:-}" ]; then echo "${!var}"; return; fi
     done
-    if [ -f "$ROLLKIT_ENV_FILE" ]; then
-        grep -E '(^DA_NAMESPACE=|^EV_NAMESPACE=|^NAMESPACE_ID=|^ROLLKIT_NAMESPACE_ID=)' "$ROLLKIT_ENV_FILE" \
-          | tail -n1 | cut -d'=' -f2 | tr -d '"' | tr -d "'"; return
-    fi
     if [ -f "$ALT_ROLLKIT_ENV_FILE" ]; then
         grep -E '(^DA_NAMESPACE=|^EV_NAMESPACE=|^NAMESPACE_ID=|^ROLLKIT_NAMESPACE_ID=)' "$ALT_ROLLKIT_ENV_FILE" \
+          | tail -n1 | cut -d'=' -f2 | tr -d '"' | tr -d "'"; return
+    fi
+    if [ -f "$ROLLKIT_ENV_FILE" ]; then
+        grep -E '(^DA_NAMESPACE=|^EV_NAMESPACE=|^NAMESPACE_ID=|^ROLLKIT_NAMESPACE_ID=)' "$ROLLKIT_ENV_FILE" \
           | tail -n1 | cut -d'=' -f2 | tr -d '"' | tr -d "'"; return
     fi
     echo ""
@@ -191,6 +191,16 @@ show_nft_muestra_existing() {
     echo "🎨 Muestra NFT RWA: tokenId $TID owner $OWNER_NFT"
 }
 # --- Fin Celestia/NFT helpers ---
+
+# --- Host log: explicit namespace verification ---
+section "🧭 Namespace detection"
+NS_DETECTED=$(resolve_namespace || true)
+if [ -n "$NS_DETECTED" ]; then
+    echo "DA Namespace: $NS_DETECTED"
+else
+    echo "⚠ No DA namespace detected yet (set DA_NAMESPACE/NAMESPACE_ID or ensure ./rollkit.env exists)"
+fi
+
 
 # Preflight: ensure 'cast' is available for the tests below
 if ! command -v cast >/dev/null 2>&1; then
@@ -360,12 +370,22 @@ echo -e "${GREEN}✓ Document registered (tx: $TX_HASH)${NC}"
 
 # Esperar y validar receipt (método A: --json + jq). Fallback: chequeo básico si falta jq.
 if command -v jq >/dev/null 2>&1; then
-    echo "🔍 Método A: Validación de receipt con --json + jq"
-    RECEIPT_JSON=$(cast wait "$TX_HASH" --rpc-url "$RPC_URL" --json 2>/dev/null || echo "")
-    STATUS_HEX=$(echo "$RECEIPT_JSON" | jq -r '.status // .result.status // empty' | tr '[:upper:]' '[:lower:]')
-    BLOCK_HEX=$(echo "$RECEIPT_JSON" | jq -r '.blockNumber // .result.blockNumber // empty')
-    if [ -z "$BLOCK_HEX" ]; then
-        fail "Tx de registro no incluida en bloque (receipt.blockNumber vacío)."
+    echo "⏳ Esperando inclusión en bloque (hasta 60s)..."
+    TIMEOUT=60; ELAPSED=0; SLEEP=2
+    RECEIPT_JSON=""; BLOCK_HEX=""; STATUS_HEX=""
+    while [ $ELAPSED -lt $TIMEOUT ]; do
+        TEMP=$(cast receipt "$TX_HASH" --rpc-url "$RPC_URL" --json 2>/dev/null || echo "")
+        BLOCK_HEX=$(echo "$TEMP" | jq -r '.blockNumber // .result.blockNumber // empty' 2>/dev/null || echo "")
+        if [ -n "$BLOCK_HEX" ] && [ "$BLOCK_HEX" != "null" ]; then
+            RECEIPT_JSON="$TEMP"
+            STATUS_HEX=$(echo "$RECEIPT_JSON" | jq -r '.status // .result.status // empty' | tr '[:upper:]' '[:lower:]')
+            break
+        fi
+        sleep $SLEEP; ELAPSED=$((ELAPSED+SLEEP))
+        echo "  Esperando... (${ELAPSED}s)"
+    done
+    if [ -z "$RECEIPT_JSON" ]; then
+        fail "Tx de registro no incluida en bloque tras ${TIMEOUT}s."
     fi
     if [ "$STATUS_HEX" != "0x1" ] && [ "$STATUS_HEX" != "1" ]; then
         echo "$RECEIPT_JSON" | jq . >/dev/null 2>&1 || true
@@ -445,12 +465,22 @@ echo -e "${GREEN}✓ Tx de minteo enviada (tx: $TX_HASH)${NC}"
 
 # Validación A (preferida): usar --json + jq para status, inclusión y evento Transfer esperado
 if command -v jq >/dev/null 2>&1; then
-    echo "🔍 Método A: Validación con --json + jq (status + eventos)"
-    RECEIPT_JSON=$(cast wait "$TX_HASH" --rpc-url "$RPC_URL" --json 2>/dev/null || echo "")
-    STATUS_HEX=$(echo "$RECEIPT_JSON" | jq -r '.status // .result.status // empty' | tr '[:upper:]' '[:lower:]')
-    BLOCK_HEX=$(echo "$RECEIPT_JSON" | jq -r '.blockNumber // .result.blockNumber // empty')
-    if [ -z "$BLOCK_HEX" ]; then
-        fail "Tx de minteo no incluida en bloque (receipt.blockNumber vacío)."
+    echo "⏳ Esperando inclusión en bloque (hasta 60s)..."
+    TIMEOUT=60; ELAPSED=0; SLEEP=2
+    RECEIPT_JSON=""; BLOCK_HEX=""; STATUS_HEX=""
+    while [ $ELAPSED -lt $TIMEOUT ]; do
+        TEMP=$(cast receipt "$TX_HASH" --rpc-url "$RPC_URL" --json 2>/dev/null || echo "")
+        BLOCK_HEX=$(echo "$TEMP" | jq -r '.blockNumber // .result.blockNumber // empty' 2>/dev/null || echo "")
+        if [ -n "$BLOCK_HEX" ] && [ "$BLOCK_HEX" != "null" ]; then
+            RECEIPT_JSON="$TEMP"
+            STATUS_HEX=$(echo "$RECEIPT_JSON" | jq -r '.status // .result.status // empty' | tr '[:upper:]' '[:lower:]')
+            break
+        fi
+        sleep $SLEEP; ELAPSED=$((ELAPSED+SLEEP))
+        echo "  Esperando... (${ELAPSED}s)"
+    done
+    if [ -z "$RECEIPT_JSON" ]; then
+        fail "Tx de minteo no incluida en bloque tras ${TIMEOUT}s."
     fi
     if [ "$STATUS_HEX" != "0x1" ] && [ "$STATUS_HEX" != "1" ]; then
         echo "$RECEIPT_JSON" | jq . >/dev/null 2>&1 || true

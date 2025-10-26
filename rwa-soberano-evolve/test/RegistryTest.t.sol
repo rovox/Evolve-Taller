@@ -37,7 +37,7 @@ contract RegistryTest is Test {
     function testDocumentRegistration() public {
         // 1. El dueño registra el primer hash
         vm.prank(deployer);
-        bytes32 daTxHash = registry.registerDocument(TEST_HASH_1);
+        bytes32 daTxHash = rollup.registerDocument(TEST_HASH_1);
 
         DocumentRegistry.DocumentRecord memory record = registry
             .getDocumentRecord(registry.RWA_ID());

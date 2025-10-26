@@ -77,6 +77,42 @@ contract DocumentRegistry is Ownable {
             block.timestamp,
             msg.sender
         );
+    }
+
+    /**
+     * @notice Registra un nuevo hash de documento para el RWA
+     * @param documentHash Hash SHA256 del documento legal
+     * @param registeredBy La dirección que registra el documento
+     * @return daTransactionHash Hash simulado de la transacción en Celestia
+     */
+    function registerDocument(
+        bytes32 documentHash,
+        address registeredBy
+    ) external onlyOwner returns (bytes32 daTransactionHash) {
+        require(
+            _documentRecords[RWA_ID].timestamp == 0,
+            "DocumentRegistry: document already registered"
+        );
+
+        // Simular hash de transacción en Celestia
+        daTransactionHash = keccak256(
+            abi.encodePacked(documentHash, block.timestamp, block.prevrandao)
+        );
+
+        _documentRecords[RWA_ID] = DocumentRecord({
+            documentHash: documentHash,
+            daTransactionHash: daTransactionHash,
+            timestamp: block.timestamp,
+            registeredBy: registeredBy
+        });
+
+        emit DocumentRegistered(
+            RWA_ID,
+            documentHash,
+            daTransactionHash,
+            block.timestamp,
+            registeredBy
+        );
 
         // Simular publicación en Celestia DA
         _simulateDAPublication(documentHash);

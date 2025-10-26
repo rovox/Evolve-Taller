@@ -1,14 +1,5 @@
-// Exportar todos los ABIs
-import DocumentRegistryABI from './DocumentRegistry.json';
 import RWASovereignRollupABI from './RWASovereignRollup.json';
-import RWAVaultABI from './RWAVault.json';
-import AssetTokenABI from './AssetToken.json';
-import MockERC20ABI from './MockERC20.json';
+import DocumentRegistryABI from './DocumentRegistry.json';
 
-export {
-  DocumentRegistryABI,
-  RWASovereignRollupABI,
-  RWAVaultABI,
-  AssetTokenABI,
-  MockERC20ABI
-};
+// Exportación simplificada
+export { RWASovereignRollupABI, DocumentRegistryABI };
