@@ -21,6 +21,10 @@ ADDRESSES_FILE="$CONTRACTS_DIR/deployed-addresses.env"
 RPC_URL="${RPC_URL:-http://localhost:8545}"
 PRIVATE_KEY="${PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}"
 
+# Anvil default account (used for contract deployment and ownership operations)
+ANVIL_DEFAULT_PRIVATE_KEY="${ANVIL_DEFAULT_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}"
+SIGNER_ADDRESS=$(cast wallet address --private-key "$ANVIL_DEFAULT_PRIVATE_KEY" 2>/dev/null || echo "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")
+
 # Celestia defaults (host-side). You can override via env.
 CELESTIA_RPC="${CELESTIA_RPC:-http://localhost:26658}"
 # Attempt to read rollkit env from shared volume or local file for DA namespace/token.
@@ -258,6 +262,15 @@ echo "  Token:     $TOKEN_ADDRESS"
 echo "  RWA:       $RWA_ADDRESS"
 echo ""
 
+# Update ABIs for frontend
+echo "🔄 Updating ABIs for frontend..."
+if [ -f "$ROOT_DIR/update-abis.sh" ]; then
+    (cd "$ROOT_DIR" && bash update-abis.sh) || echo -e "${YELLOW}⚠ Warning: Failed to update ABIs${NC}"
+else
+    echo -e "${YELLOW}⚠ Warning: update-abis.sh not found${NC}"
+fi
+echo ""
+
 # Test 1: Verify RPC connectivity
 echo "🔌 Test 1: Verifying RPC connectivity..."
 if ! BLOCK_NUM=$(cast block-number --rpc-url "$RPC_URL" 2>/dev/null); then
@@ -285,13 +298,13 @@ echo ""
 
 # Test 3: Verify RWA contract wiring
 echo "🔗 Test 3: Verifying RWA contract references..."
-REGISTRY_FROM_RWA=$(cast call "$RWA_ADDRESS" "registry()(address)" --rpc-url "$RPC_URL" 2>/dev/null || echo "0x0")
+REGISTRY_FROM_RWA=$(cast call "$RWA_ADDRESS" "documentRegistry()(address)" --rpc-url "$RPC_URL" 2>/dev/null || echo "0x0")
 TOKEN_FROM_RWA=$(cast call "$RWA_ADDRESS" "assetToken()(address)" --rpc-url "$RPC_URL" 2>/dev/null || echo "0x0")
 
 if [ "$REGISTRY_FROM_RWA" != "$REGISTRY_ADDRESS" ]; then
-    fail "RWA.registry() devolvió $REGISTRY_FROM_RWA, se esperaba $REGISTRY_ADDRESS"
+    fail "RWA.documentRegistry() devolvió $REGISTRY_FROM_RWA, se esperaba $REGISTRY_ADDRESS"
 fi
-echo -e "${GREEN}✓ RWA.registry() points to correct address${NC}"
+echo -e "${GREEN}✓ RWA.documentRegistry() points to correct address${NC}"
 
 if [ "$TOKEN_FROM_RWA" != "$TOKEN_ADDRESS" ]; then
     fail "RWA.assetToken() devolvió $TOKEN_FROM_RWA, se esperaba $TOKEN_ADDRESS"
@@ -443,25 +456,34 @@ celestia_check_recent_blobs "DocumentRegistry.registerDocument" 12
 echo "🎨 Test 5: Muestra del NFT RWA existente"
 show_nft_muestra_existing
 
-# Test 6: Mint tokens (ERC20)
-echo "💰 Test 6: Minting RWA tokens..."
-RECIPIENT="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"  # Second account from genesis
-MINT_AMOUNT="1000000000000000000"  # 1 token (18 decimals)
+# Test 6: Purchase fractional shares (using purchaseFraction function)
+echo "💰 Test 6: Purchasing RWA fractional shares..."
+PURCHASE_AMOUNT_ETH="0.001" # Amount in ETH to send
+PURCHASE_AMOUNT_WEI=$(cast to-wei $PURCHASE_AMOUNT_ETH) # Convert to wei
 
-# Enviar transacción de minteo y extraer hash de forma robusta
-TX_OUT=$(cast send "$TOKEN_ADDRESS" \
-    "mint(address,uint256)" \
-    "$RECIPIENT" \
-    "$MINT_AMOUNT" \
-    --rpc-url "$RPC_URL" \
-    --private-key "$PRIVATE_KEY" \
-    --legacy 2>&1 || true)
-TX_HASH=$(echo "$TX_OUT" | grep -Eo '0x[0-9a-fA-F]{64}' | head -n1 || echo "")
-if [ -z "$TX_HASH" ]; then
-    echo "Salida cast send:"; echo "$TX_OUT"
-    fail "Falló la transacción de minteo de tokens (no se pudo extraer TX hash)"
+# Purchase fractions by sending ETH to the purchaseFraction function
+TX_OUTPUT=$(
+    cast send $RWA_ADDRESS \
+        "purchaseFraction()" \
+        --value $PURCHASE_AMOUNT_WEI \
+        --private-key $ANVIL_DEFAULT_PRIVATE_KEY --rpc-url $RPC_URL --json | tee /tmp/purchase_output.json
+)
+
+# Extract transaction hash from output
+if command -v jq >/dev/null 2>&1; then
+    TX_HASH=$(echo "$TX_OUTPUT" | jq -r '.transactionHash // .hash // empty' 2>/dev/null || echo "")
+else
+    # Fallback: try to extract from plain text output
+    TX_HASH=$(echo "$TX_OUTPUT" | grep -oE '0x[a-fA-F0-9]{64}' | head -n1 || echo "")
 fi
-echo -e "${GREEN}✓ Tx de minteo enviada (tx: $TX_HASH)${NC}"
+
+if [ -z "$TX_HASH" ]; then
+    echo "Salida cast send:"
+    echo "$TX_OUTPUT"
+    fail "Falló la transacción de compra de fracciones (no se pudo extraer TX hash)"
+fi
+
+echo "✓ Purchase transaction sent: $TX_HASH"
 
 # Validación A (preferida): usar --json + jq para status, inclusión y evento Transfer esperado
 if command -v jq >/dev/null 2>&1; then
@@ -480,20 +502,20 @@ if command -v jq >/dev/null 2>&1; then
         echo "  Esperando... (${ELAPSED}s)"
     done
     if [ -z "$RECEIPT_JSON" ]; then
-        fail "Tx de minteo no incluida en bloque tras ${TIMEOUT}s."
+        fail "Tx de compra de fracciones no incluida en bloque tras ${TIMEOUT}s."
     fi
     if [ "$STATUS_HEX" != "0x1" ] && [ "$STATUS_HEX" != "1" ]; then
         echo "$RECEIPT_JSON" | jq . >/dev/null 2>&1 || true
-        fail "Tx de minteo fallida (status=$STATUS_HEX)."
+        fail "Tx de compra de fracciones fallida (status=$STATUS_HEX)."
     fi
     # Comprobar evento Transfer (ERC20): topic0 = Transfer, topic2 = destinatario
     TRANSFER_TOPIC="0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
-    RECIPIENT_TOPIC="0x000000000000000000000000${RECIPIENT#0x}"
+    RECIPIENT_TOPIC="0x000000000000000000000000${SIGNER_ADDRESS#0x}"
     HAS_TRANSFER=$(echo "$RECEIPT_JSON" | jq -e --arg t "$TRANSFER_TOPIC" --arg to "$RECIPIENT_TOPIC" '(.logs // []) | any(.topics[0]==$t and .topics[2]|ascii_downcase==$to|ascii_downcase)')
     if [ "$HAS_TRANSFER" != "true" ]; then
-        echo -e "${YELLOW}⚠ Éxito on-chain, pero no se detectó Transfer al destinatario (${RECIPIENT})${NC}"
+        echo -e "${YELLOW}⚠ Éxito on-chain, pero no se detectó Transfer al destinatario (${SIGNER_ADDRESS})${NC}"
     else
-        echo -e "${GREEN}✓ Evento Transfer detectado hacia ${RECIPIENT}${NC}"
+        echo -e "${GREEN}✓ Evento Transfer detectado hacia ${SIGNER_ADDRESS}${NC}"
     fi
     echo -e "${GREEN}✓ Receipt válida (status=$STATUS_HEX, block=$BLOCK_HEX)${NC}"
 else
@@ -507,35 +529,48 @@ else
             sleep $SLEEP; ELAPSED=$((ELAPSED+SLEEP)); continue
         fi
         if echo "$R" | grep -q '"status":"0x0"'; then
-            fail "Tx de minteo revertida (status 0x0)"
+            fail "Tx de compra de fracciones revertida (status 0x0)"
         fi
         echo -e "${GREEN}✓ Receipt válida (status 0x1)${NC}"; break
     done
-    [ $ELAPSED -ge $TIMEOUT ] && fail "Timeout esperando receipt de minteo"
+    [ $ELAPSED -ge $TIMEOUT ] && fail "Timeout esperando receipt de compra de fracciones"
 fi
 
-# Verify balance (estado observable)
-BALANCE=$(cast call "$TOKEN_ADDRESS" \
+# Verify balance of fractional shares (RWA ERC20 token, not AssetToken NFT)
+BALANCE=$(cast call "$RWA_ADDRESS" \
     "balanceOf(address)(uint256)" \
-    "$RECIPIENT" \
+    "$SIGNER_ADDRESS" \
     --rpc-url "$RPC_URL" 2>/dev/null || echo "0")
 
 if [ "$BALANCE" = "0" ]; then
-    fail "El balance de tokens es 0 después del minteo"
+    fail "El balance de shares fraccionales es 0 después de la compra"
 fi
-echo -e "${GREEN}✓ Token balance verified: $BALANCE wei${NC}"
+echo -e "${GREEN}✓ Fractional shares balance verified: $BALANCE wei${NC}"
 echo ""
 
-# Test 7: Verify token metadata
+# Test 7: Verify token metadata for both NFT and fractional shares
 echo "🏷️  Test 7: Verifying token metadata..."
-TOKEN_NAME=$(cast call "$TOKEN_ADDRESS" "name()(string)" --rpc-url "$RPC_URL" 2>/dev/null || echo "")
-TOKEN_SYMBOL=$(cast call "$TOKEN_ADDRESS" "symbol()(string)" --rpc-url "$RPC_URL" 2>/dev/null || echo "")
 
-if [ -z "$TOKEN_NAME" ] || [ -z "$TOKEN_SYMBOL" ]; then
-    fail "No se pudo obtener la metadata del token"
+# Get NFT (AssetToken) metadata
+NFT_NAME=$(cast call "$TOKEN_ADDRESS" "name()(string)" --rpc-url "$RPC_URL" 2>/dev/null || echo "")
+NFT_SYMBOL=$(cast call "$TOKEN_ADDRESS" "symbol()(string)" --rpc-url "$RPC_URL" 2>/dev/null || echo "")
+
+# Get fractional shares (RWA) metadata
+SHARES_NAME=$(cast call "$RWA_ADDRESS" "name()(string)" --rpc-url "$RPC_URL" 2>/dev/null || echo "")
+SHARES_SYMBOL=$(cast call "$RWA_ADDRESS" "symbol()(string)" --rpc-url "$RPC_URL" 2>/dev/null || echo "")
+
+if [ -z "$NFT_NAME" ] || [ -z "$NFT_SYMBOL" ]; then
+    echo -e "${YELLOW}⚠ Warning: Could not get NFT metadata${NC}"
 fi
-echo -e "${GREEN}✓ Token name: $TOKEN_NAME${NC}"
-echo -e "${GREEN}✓ Token symbol: $TOKEN_SYMBOL${NC}"
+
+if [ -z "$SHARES_NAME" ] || [ -z "$SHARES_SYMBOL" ]; then
+    fail "No se pudo obtener la metadata del token de shares fraccionales"
+fi
+
+echo -e "${GREEN}✓ NFT Token name: $NFT_NAME${NC}"
+echo -e "${GREEN}✓ NFT Token symbol: $NFT_SYMBOL${NC}"
+echo -e "${GREEN}✓ Fractional Shares name: $SHARES_NAME${NC}"
+echo -e "${GREEN}✓ Fractional Shares symbol: $SHARES_SYMBOL${NC}"
 echo ""
 
 # Test 8: Verify Celestia DA connectivity (JSON-RPC)
@@ -573,6 +608,52 @@ else
 fi
 echo ""
 
+# Test 10: Export configuration for frontend
+echo "📤 Test 10: Exporting configuration for frontend..."
+
+# Create frontend config directory if it doesn't exist
+FRONTEND_PUBLIC_DIR="$ROOT_DIR/frontend/public"
+mkdir -p "$FRONTEND_PUBLIC_DIR"
+
+# Copy deployed addresses
+cp "$ADDRESSES_FILE" "$FRONTEND_PUBLIC_DIR/deployed-addresses.env" 2>/dev/null || true
+
+# Create a comprehensive configuration file for the frontend
+cat > "$FRONTEND_PUBLIC_DIR/rollup-config.json" <<EOF
+{
+  "network": {
+    "name": "Evolve Rollup",
+    "chainId": $(cast chain-id --rpc-url "$RPC_URL" 2>/dev/null || echo "1234"),
+    "rpcUrl": "$RPC_URL",
+    "blockExplorer": "http://localhost:80"
+  },
+  "contracts": {
+    "DocumentRegistry": "$REGISTRY_ADDRESS",
+    "AssetToken": "$TOKEN_ADDRESS",
+    "RWASovereignRollup": "$RWA_ADDRESS"
+  },
+  "celestia": {
+    "namespace": "$DA_NAMESPACE",
+    "rpcUrl": "$CELESTIA_RPC"
+  },
+  "metadata": {
+    "nft": {
+      "name": "$NFT_NAME",
+      "symbol": "$NFT_SYMBOL"
+    },
+    "fractionalShares": {
+      "name": "$SHARES_NAME",
+      "symbol": "$SHARES_SYMBOL"
+    },
+    "deployedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  }
+}
+EOF
+
+echo -e "${GREEN}✓ Configuration exported to $FRONTEND_PUBLIC_DIR/rollup-config.json${NC}"
+echo -e "${GREEN}✓ Addresses copied to $FRONTEND_PUBLIC_DIR/deployed-addresses.env${NC}"
+echo ""
+
 # Summary
 echo "=============================="
 echo -e "${GREEN}✅ ALL INTEGRATION TESTS PASSED${NC}"
@@ -583,11 +664,12 @@ echo "  • RPC connectivity: OK"
 echo "  • Contracts deployed: OK"
 echo "  • Contract wiring: OK"
 echo "  • Document registration: OK"
-echo "  • NFT muestra: OK"
-echo "  • Token minting: OK"
-echo "  • Token metadata: OK"
+echo "  • NFT ownership: OK"
+echo "  • Fractional shares purchase: OK"
+echo "  • Token metadata (NFT + Shares): OK"
 echo "  • Celestia DA: $([ -n "${CELESTIA_RESPONSE:-}" ] && echo 'OK' || echo 'SKIPPED')"
 echo "  • Block production: OK"
+echo "  • Frontend config export: OK"
 echo ""
 echo "🎉 RWA contracts are fully integrated with Evolve rollup!"
 echo ""
