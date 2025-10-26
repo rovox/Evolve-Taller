@@ -229,65 +229,37 @@ if not cfg.get('reth-only'):
             exit 1
         fi
 
-        if [ ! -f deployed-addresses.env ]; then
-            printf "%b❌ URGENTE: deployed-addresses.env no fue generado por el script%b\n" "$RED" "$NC"
+        if [ ! -f deployed-contracts.json ]; then
+            printf "%b❌ URGENTE: deployed-contracts.json no fue generado por el script%b\n" "$RED" "$NC"
             printf "%bSugerencia:%b verifica fs_permissions en rwa-soberano-evolve/foundry.toml:\n" "$YELLOW" "$NC"
-            printf "  fs_permissions = [ { access = \"read\", path = \"./\" }, { access = \"write\", path = \"./deployed-addresses.env\" } ]\n"
+            printf "  fs_permissions = [ { access = \"read\", path = \"./\" }, { access = \"write\", path = \"./deployed-contracts.json\" } ]\n"
             exit 1
         fi
 
-        printf "%b✅ Contracts deployed. Addresses:%b\\n" "$GREEN" "$NC"
-        cat deployed-addresses.env
+        printf "%b✅ Contracts deployed. Details written to deployed-contracts.json%b\\n" "$GREEN" "$NC"
+        cat deployed-contracts.json
         ''',
         resource_deps=['rollkit-sequencer'],
         labels=['contracts']
     )
 
-    # Run a quick integration test that exercises the deployed contracts
-    local_resource('rwa-integration-test',
+    # Sync contracts and start frontend dev server
+    local_resource('sync-and-start-frontend',
         '''
-        echo "🧪 Running RWA integration test..."
-        # Ensure script is executable and run it
-        if [ -f ./test-rwa-integration.sh ]; then
-            chmod +x ./test-rwa-integration.sh
-            ./test-rwa-integration.sh || (echo "Integration test failed" && exit 1)
-        else
-            echo "test-rwa-integration.sh not found in repo root"
-            exit 1
-        fi
-        ''',
-        resource_deps=['deploy-rwa-contracts', 'export-rollkit-env'],
-        labels=['contracts']
-    )
+        set -e
+        echo "📦 Syncing contracts to frontend via Node.js script..."
+        node scripts/sync-from-foundry.mjs
 
-    # Sync contract addresses to frontend
-    local_resource('sync-frontend-addresses',
-        '''
-        echo "📦 Syncing contract addresses to frontend..."
-        if [ -f ./sync-contract-addresses.sh ]; then
-            chmod +x ./sync-contract-addresses.sh
-            ./sync-contract-addresses.sh
-        else
-            echo "sync-contract-addresses.sh not found"
-            exit 1
-        fi
-        ''',
-        resource_deps=['rwa-integration-test'],
-        labels=['frontend']
-    )
-
-    # Start frontend dev server
-    local_resource('frontend-dev',
-        '''
+        echo "\n---------------------------------------------"
+        echo "🚀 Starting frontend dev server..."
         cd frontend
         if [ ! -d node_modules ]; then
             echo "📦 Installing frontend dependencies..."
             npm install
         fi
-        echo "🚀 Starting frontend dev server..."
         npm run dev
         ''',
-        resource_deps=['sync-frontend-addresses'],
+        resource_deps=['deploy-rwa-contracts'],
         serve_cmd='cd frontend && npm run dev',
         links=['http://localhost:5173'],
         labels=['frontend']

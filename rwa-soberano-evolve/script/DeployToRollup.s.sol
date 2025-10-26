@@ -23,20 +23,32 @@ contract DeployToRollup is Script {
 
         vm.stopBroadcast();
 
-        string memory addresses = string(
+        // We will write the deployed addresses and contract names to a JSON file
+        // for easier parsing by other scripts.
+        string memory json = string(
             abi.encodePacked(
-                "REGISTRY_ADDRESS=", vm.toString(address(registry)), "\n",
-                "TOKEN_ADDRESS=", vm.toString(address(token)), "\n",
-                "RWA_ADDRESS=", vm.toString(address(rwa)), "\n"
+                "{\n",
+                "  \"DocumentRegistry\": {\n",
+                "    \"address\": \"", vm.toString(address(registry)), "\",\n",
+                "    \"abiPath\": \"out/DocumentRegistry.sol/DocumentRegistry.json\"\n",
+                "  },\n",
+                "  \"AssetToken\": {\n",
+                "    \"address\": \"", vm.toString(address(token)), "\",\n",
+                "    \"abiPath\": \"out/AssetToken.sol/AssetToken.json\"\n",
+                "  },\n",
+                "  \"RWASovereignRollup\": {\n",
+                "    \"address\": \"", vm.toString(address(rwa)), "\",\n",
+                "    \"abiPath\": \"out/RWASovereignRollup.sol/RWASovereignRollup.json\"\n",
+                "  }\n",
+                "}\n"
             )
         );
-        vm.writeFile("./deployed-addresses.env", addresses);
 
-        console2.log("RWASovereignRollup deployed at", address(rwa));
-        console2.log(
-            "DocumentRegistry (from rollup) deployed at",
-            address(registry)
-        );
-        console2.log("AssetToken deployed at", address(token));
+        vm.writeFile("./deployed-contracts.json", json);
+
+        console2.log("Deployment complete. Contract details written to deployed-contracts.json");
+        console2.log("RWASovereignRollup deployed at:", address(rwa));
+        console2.log("DocumentRegistry (from rollup) deployed at:", address(registry));
+        console2.log("AssetToken deployed at:", address(token));
     }
 }

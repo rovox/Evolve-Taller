@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useAccount, useConnect, useDisconnect, useChainId, useWriteContract, useReadContract } from 'wagmi';
+import { useAccount, useConnect, useDisconnect, useChainId, useWriteContract, useReadContract, usePublicClient } from 'wagmi';
 import { parseEther, formatEther, keccak256, toHex } from 'viem';
 import { metaMask } from 'wagmi/connectors';
 import toast from 'react-hot-toast';
@@ -18,6 +18,7 @@ const RWAInterface: React.FC = () => {
   const { connect } = useConnect();
   const { disconnect } = useDisconnect();
   const chainId = useChainId();
+  const publicClient = usePublicClient()!;
 
   const [purchaseAmount, setPurchaseAmount] = useState('0.01');
   const [documentContent, setDocumentContent] = useState('');
@@ -83,24 +84,18 @@ const RWAInterface: React.FC = () => {
         args: [calculatedDocumentHash],
       });
 
-      toast.custom(
-        (t) => (
-          <div className={`toast-container ${t.visible ? 'animate-enter' : 'animate-leave'}`}>
-            <span className="toast-icon">🎉</span>
-            <p className="toast-content">
-              ¡Activo creado exitosamente! Hash de la transacción:
-              <a href={`${BLOCK_EXPLORER_URL}/tx/${txHash}`} target="_blank" rel="noopener noreferrer" className="toast-link">
-                {txHash.slice(0, 10)}...{txHash.slice(-8)}
-              </a>
-            </p>
-          </div>
-        ),
-        { duration: 10000 }
-      );
+      toast.loading('Esperando confirmación de la transacción...', { id: 'tx-creation' });
 
-      setTimeout(() => {
-        refetchDocumentRecord();
-      }, 3000);
+      const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+
+      if (receipt.status === 'success') {
+        toast.success('¡Transacción confirmada!', { id: 'tx-creation' });
+      } else {
+        toast.error('La transacción falló.', { id: 'tx-creation' });
+      }
+
+      // Refrescar los datos después de la confirmación
+      refetchDocumentRecord();
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Ocurrió un error desconocido.';
@@ -128,25 +123,19 @@ const RWAInterface: React.FC = () => {
         value: amountWei,
       });
 
-      toast.custom(
-        (t) => (
-          <div className={`toast-container ${t.visible ? 'animate-enter' : 'animate-leave'}`}>
-            <span className="toast-icon">🛒</span>
-            <p className="toast-content">
-              ¡Compra de fracción exitosa! Hash de la transacción:
-              <a href={`${BLOCK_EXPLORER_URL}/tx/${txHash}`} target="_blank" rel="noopener noreferrer" className="toast-link">
-                {txHash.slice(0, 10)}...{txHash.slice(-8)}
-              </a>
-            </p>
-          </div>
-        ),
-        { duration: 10000 }
-      );
+      toast.loading('Esperando confirmación de la transacción...', { id: 'tx-purchase' });
 
-      setTimeout(() => {
-        refetchTotalAssets();
-        refetchUserBalance();
-      }, 3000);
+      const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+
+      if (receipt.status === 'success') {
+        toast.success('¡Transacción confirmada!', { id: 'tx-purchase' });
+      } else {
+        toast.error('La transacción falló.', { id: 'tx-purchase' });
+      }
+
+      // Refrescar los datos después de la confirmación
+      refetchTotalAssets();
+      refetchUserBalance();
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Ocurrió un error desconocido.';
