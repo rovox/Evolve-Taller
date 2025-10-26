@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { ethers } from 'ethers'
+import { BrowserProvider, Contract, Interface, keccak256, parseEther, toUtf8Bytes, type ContractTransactionResponse, type Signer } from 'ethers'
 import { Activity, FileText, ShoppingCart, Loader2, Check, ExternalLink } from 'lucide-react'
 
 // Importa ABIs (asume que update-abis.sh ya corrió)
@@ -15,8 +15,8 @@ interface TxResult {
 }
 
 export default function RWADemo() {
-  const [provider, setProvider] = useState<ethers.providers.Web3Provider | null>(null)
-  const [signer, setSigner] = useState<ethers.Signer | null>(null)
+  const [provider, setProvider] = useState<BrowserProvider | null>(null)
+  const [signer, setSigner] = useState<Signer | null>(null)
   const [account, setAccount] = useState<string>('')
   const [status, setStatus] = useState<string>('Desconectado')
   const [loading, setLoading] = useState(false)
@@ -28,7 +28,6 @@ export default function RWADemo() {
   // Direcciones (desde deployed-addresses.env vía backend o import.meta.env)
   const RPC_URL = import.meta.env.VITE_RPC_URL || 'http://localhost:8545'
   const REGISTRY_ADDRESS = import.meta.env.VITE_REGISTRY_ADDRESS || ''
-  const TOKEN_ADDRESS = import.meta.env.VITE_TOKEN_ADDRESS || ''
   const RWA_ADDRESS = import.meta.env.VITE_RWA_ADDRESS || ''
 
   useEffect(() => {
@@ -59,9 +58,9 @@ export default function RWADemo() {
         alert('MetaMask no detectado. Instala MetaMask.')
         return
       }
-      const web3Provider = new ethers.providers.Web3Provider(anyWin.ethereum)
+      const web3Provider = new BrowserProvider(anyWin.ethereum)
       await web3Provider.send('eth_requestAccounts', [])
-      const signer = web3Provider.getSigner()
+      const signer = await web3Provider.getSigner()
       const address = await signer.getAddress()
 
       setProvider(web3Provider)
@@ -86,25 +85,22 @@ export default function RWADemo() {
       const rwaAddress = (window as any).__RWA_ADDRESS || RWA_ADDRESS
       if (!rwaAddress) throw new Error('RWA_ADDRESS no configurada')
 
-      const contract = new ethers.Contract(rwaAddress, rwaAbi.abi, signer)
-      const documentHash = ethers.keccak256(ethers.toUtf8Bytes(`RWA-${Date.now()}`))
+      const contract = new Contract(rwaAddress, rwaAbi.abi, signer)
+      const documentHash = keccak256(toUtf8Bytes(`RWA-${Date.now()}`))
 
-      // Llamar a createAsset (ajusta nombre de función según tu contrato)
-      // Si no existe, usa registerDocument del DocumentRegistry
-      let tx: ethers.ContractTransaction
+      let tx: ContractTransactionResponse
       if (contract.createAsset) {
         tx = await contract.createAsset(documentHash)
       } else {
-        // Fallback: registra documento en DocumentRegistry
         const regAddress = (window as any).__REGISTRY_ADDRESS || REGISTRY_ADDRESS
-        const regContract = new ethers.Contract(regAddress, registryAbi.abi, signer)
+        const regContract = new Contract(regAddress, registryAbi.abi, signer)
         tx = await regContract.registerDocument(documentHash)
       }
 
       setStatus(`Tx enviada: ${tx.hash}. Esperando confirmación...`)
       const receipt = await tx.wait(1)
 
-      const iface = new ethers.Interface(rwaAbi.abi)
+      const iface = new Interface(rwaAbi.abi)
       const parsedEvents = receipt.logs
         .map((log: any) => {
           try {
@@ -120,7 +116,7 @@ export default function RWADemo() {
       const blockNumber = receipt.blockNumber
 
       setCreateTxResult({
-        hash: receipt.transactionHash,
+        hash: receipt?.hash ?? tx?.hash ?? '',
         blockNumber,
         events: parsedEvents,
         contractInfo: { totalAssets: totalAssets.toString(), documentHash }
@@ -145,15 +141,14 @@ export default function RWADemo() {
       const rwaAddress = (window as any).__RWA_ADDRESS || RWA_ADDRESS
       if (!rwaAddress) throw new Error('RWA_ADDRESS no configurada')
 
-      const contract = new ethers.Contract(rwaAddress, rwaAbi.abi, signer)
-      const amountWei = ethers.parseEther('0.01') // compra con 0.01 ETH
+      const contract = new Contract(rwaAddress, rwaAbi.abi, signer)
+      const amountWei = parseEther('0.01')
 
-      // Llamar a purchaseFraction (ajusta nombre si es diferente)
       const tx = await contract.purchaseFraction({ value: amountWei })
       setStatus(`Tx enviada: ${tx.hash}. Esperando confirmación...`)
       const receipt = await tx.wait(1)
 
-      const iface = new ethers.Interface(rwaAbi.abi)
+      const iface = new Interface(rwaAbi.abi)
       const parsedEvents = receipt.logs
         .map((log: any) => {
           try {
@@ -168,7 +163,7 @@ export default function RWADemo() {
       const blockNumber = receipt.blockNumber
 
       setPurchaseTxResult({
-        hash: receipt.transactionHash,
+        hash: receipt?.hash ?? tx?.hash ?? '',
         blockNumber,
         events: parsedEvents,
         contractInfo: { userBalance: balance.toString(), amountPaid: amountWei.toString() }
