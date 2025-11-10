@@ -1,0 +1,91 @@
+---
+services:
+  init-1-permission:
+    image: busybox
+    user: root
+    volumes:
+      - celestia-node-data:/data-node
+      - celestia-appd-data:/data-app
+    command: chown -R 10001:10001 /data-node /data-app
+
+  init-2-appd:
+    image: ghcr.io/celestiaorg/celestia-app:v6.2.0-mocha
+    env_file: .env
+    volumes:
+      - celestia-appd-data:/home/celestia/.celestia-app
+      - ./entrypoint.init-2.sh:/init-2-appd.sh
+    entrypoint: [/bin/bash, /init-2-appd.sh]
+    restart: "no"
+    depends_on:
+      init-1-permission:
+        condition: service_completed_successfully
+
+  init-3-snapshot:
+    image: ghcr.io/linuxserver/baseimage-alpine:3.22
+    env_file: .env
+    volumes:
+      - celestia-appd-data:/home/celestia/.celestia-app
+      - ./entrypoint.init-3.sh:/init-3-snapshot.sh
+    entrypoint: [/bin/bash, /init-3-snapshot.sh]
+    restart: "no"
+    depends_on:
+      init-2-appd:
+        condition: service_completed_successfully
+
+  app:
+    depends_on:
+      init-3-snapshot:
+        condition: service_completed_successfully
+    container_name: celestia-app
+    image: ghcr.io/celestiaorg/celestia-app:v6.2.2-mocha
+    env_file: .env
+    restart: always
+    volumes:
+      - celestia-appd-data:/home/celestia/.celestia-app
+    environment:
+      - VOLUME_EXPORT_PATH=/volumes/da_export
+    command: [start, --force-no-bbr]
+    healthcheck:
+      test: ["CMD", "celestia-appd", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 50
+      start_period: 5s
+    networks:
+      - evstack_shared
+
+  da:
+    container_name: celestia-node
+    image: ghcr.io/celestiaorg/celestia-node:v0.28.2-mocha
+    env_file: .env
+    restart: always
+    depends_on:
+      app:
+        condition: service_healthy
+    volumes:
+      - celestia-node-data:/home/celestia
+      - ./entrypoint.da.sh:/entrypoint.sh
+      - ../../lib/logging.sh:/usr/local/lib/logging.sh:ro
+    environment:
+      - VOLUME_EXPORT_PATH=/volumes/da_export
+    entrypoint: [/bin/bash, /entrypoint.sh]
+    ports:
+      - $DA_RPC_PORT:26658
+    healthcheck:
+      test: ["CMD", "celestia", "node", "info", "--url", "http://localhost:26658"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    networks:
+      - evstack_shared
+
+volumes:
+  celestia-appd-data:
+    driver: local
+  celestia-node-data:
+    driver: local
+
+networks:
+  evstack_shared:
+    name: evstack_shared
