@@ -32,7 +32,7 @@ if [ ! -f "$INIT_LOCK_FILE" ]; then
         if ! celestia light init \
             "--core.ip=${DA_CORE_IP}" \
             "--core.port=${DA_CORE_PORT}" \
-                "--p2p.network=${DA_NETWORK}"; then
+            "--p2p.network=${DA_NETWORK}"; then
             log "ERROR" "Failed to initialize celestia light node"
             exit 1
         fi
@@ -119,7 +119,6 @@ fi
 log "INIT" "Starting Celestia light node"
 log "INFO" "Light node will be accessible on RPC port: ${DA_RPC_PORT}"
 log "INFO" "Starting with skip-auth enabled for RPC access"
-log "INFO" "Connecting to public RPC (TLS disabled - endpoint doesn't support it)"
 
 celestia light start \
     "--core.ip=${DA_CORE_IP}" \
