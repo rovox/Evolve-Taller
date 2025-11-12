@@ -1,147 +1,130 @@
-# Evolve Deployment (basado en ev-toolbox)
+# Evolve Deployment (Devnet local con Celestia + EVM)
 
-Este repositorio contiene una infraestructura de devnet local orquestada con Docker Compose. Está basada en ev-toolbox:
+Este repositorio levanta un entorno local con Docker Compose para desarrollar sobre un secuenciador EVM que publica datos en Celestia (Mocha). Se consolidó toda la documentación en este único archivo para simplificar el onboarding y la operación.
 
-- Proyecto base: https://github.com/evstack/ev-toolbox
-- El proceso seguido para generar este repo está documentado en `proceso.txt` (transcripción íntegra de la instalación interactiva).
+- Proyecto base: https://github.com/evstack/ev-toolbox (adaptado)
+- Red única: `evstack_shared`
+- Endpoints: Celestia http://localhost:26658 · Reth http://localhost:8545 · Explorer http://localhost:3000 · Faucet http://localhost:8081
 
-## Arquitectura (resumen)
-- Red compartida: `evstack_shared`.
-- Componentes principales:
-  - Celestia DA (light node + celestia-appd) en `stacks/da-celestia/`.
-  - Secuenciador EVM (ev-node-evm-single) + motor Reth en `stacks/single-sequencer/`.
-  - Extras opcionales: Blockscout (BE/FE/stats + Postgres + Redis) en `stacks/eth-explorer/` y faucet en `stacks/eth-faucet/`.
-- Orden de arranque: Celestia → Secuenciador → Extras.
+## Arquitectura (a grandes rasgos)
+- Celestia DA: Light node que se conecta a Core público (`rpc-mocha.pops.one:9090`). RPC expuesto con `--rpc.skip-auth` exclusivamente para dev.
+- Sequencer: `ev-node-evm-single` conectado al motor `ev-reth`. Publica blobs a Celestia usando namespaces definidos en `.env`.
+- Extras opcionales: Blockscout (explorador) y Faucet.
 
-## Mejora aplicada: Celestia TxWorkers duplicados
-Se detectó un problema donde, tras reinicios, la configuración de Celestia regeneraba entradas bajo la sección `[State]`, provocando duplicación de TxWorkers.
+Cambios clave aplicados recientemente:
+- Simplificación de Celestia: se eliminaron contenedores de `celestia-appd`; solo queda el light node con init de una sola vez (lock `.initialized`).
+- Healthcheck realista para Celestia: ahora usa JSON-RPC `p2p.Info` evitando falsos negativos.
+- Seguridad integrada: `.gitignore` excluye `.env` y secretos; el passphrase del secuenciador ya no vive en el repo (se genera en runtime).
+- Logs por servicio: nuevas dianas en Makefile para ver `ev-reth` y `ev-node` por separado.
 
-- Solución implementada en `stacks/da-celestia/entrypoint.da.sh`:
-  - Inicialización idempotente con un archivo candado `~/.initialized`.
-  - Normalización de `TxWorkerAccounts` dentro de `[State]` para que quede forzado a `8` y sin duplicados en el bloque de configuración relevante.
-  - Actualización controlada de `TrustedHash`, `SampleFrom` y `DASer.SampleFrom`.
+## Árbol del proyecto (resumido)
+```
+.
+├─ Makefile                      # Ciclo de vida y logs por servicio
+├─ lib/
+│  └─ logging.sh                 # Utilidad de logs compartida
+├─ stacks/
+│  ├─ da-celestia/
+│  │  ├─ docker-compose.yml      # Servicio celestia-node (light)
+│  │  ├─ entrypoint.da.sh        # Init idempotente + start RPC
+│  │  └─ .env.example            # Plantilla de configuración DA
+│  ├─ single-sequencer/
+│  │  ├─ docker-compose.yml      # ev-reth + ev-node + init de passphrase/JWT
+│  │  ├─ entrypoint.sequencer.sh # Init y arranque del secuenciador
+│  │  ├─ genesis.json            # Cadena local
+│  │  └─ .env.example            # Plantilla de configuración EVM/DA
+│  ├─ eth-explorer/
+│  │  └─ docker-compose.yml      # Blockscout (opcional)
+│  └─ eth-faucet/
+│     └─ docker-compose.yml      # Faucet (opcional)
+└─ .gitignore                    # Excluye .env y secretos
+```
 
-Con esto, los reinicios no vuelven a duplicar la configuración y el light node queda consistente.
+Notas importantes:
+- El archivo `passphrase` fue eliminado del repo. Ahora se genera automáticamente por un contenedor init y se guarda en un volumen llamado `passphrase-sequencer` (sin tocar Git).
+- Los `.env` reales nunca se versionan; usa las plantillas `.env.example` y crea tus `.env` locales.
 
-## Estructura del repo
-- `Makefile`: tareas de ciclo de vida (start/stop/logs/status/clean).
-- `lib/logging.sh`: helper de logging compartido entre entrypoints.
-- `stacks/da-celestia/`: compose y entrypoints para celestia-appd y light node.
-- `stacks/single-sequencer/`: compose del secuenciador, `genesis.json` y `passphrase`.
-- `stacks/eth-explorer/`, `stacks/eth-faucet/`: servicios opcionales.
-- `proceso.txt`: pasos seguidos para generar este despliegue.
-
-## Configuración inicial (PRIMERA VEZ)
-
-⚠️ **IMPORTANTE**: Antes de iniciar el stack por primera vez, debes configurar los archivos de entorno con tus propios valores.
-
-### 1. Copiar archivos de plantilla
-
-Ejecuta los siguientes comandos para crear tus archivos de configuración desde las plantillas:
-
+## Configuración
+1) Copia y edita las plantillas
 ```bash
-# Copiar archivos .env
 cp stacks/da-celestia/.env.example stacks/da-celestia/.env
 cp stacks/single-sequencer/.env.example stacks/single-sequencer/.env
+# (Opcional) Si usas extras:
 cp stacks/eth-explorer/.env.example stacks/eth-explorer/.env
 cp stacks/eth-faucet/.env.example stacks/eth-faucet/.env
-
-# Copiar passphrase
-cp stacks/single-sequencer/passphrase.example stacks/single-sequencer/passphrase
 ```
+- En `da-celestia/.env`: define `DA_HEADER_NAMESPACE`, `DA_DATA_NAMESPACE`, y (si aplica) `DA_TRUSTED_*`.
+- En `single-sequencer/.env`: usa los mismos namespaces; ajusta `CHAIN_ID` y `SEQUENCER_DA_START_HEIGHT`.
+- En `eth-explorer/.env`: genera `EXPLORER_POSTGRES_PASSWORD` y `SECRET_KEY_BASE`.
+- En `eth-faucet/.env`: usa una clave privada solo de pruebas.
 
-### 2. Generar valores seguros
+2) No necesitas crear `passphrase`: el compose genera uno aleatorio automáticamente y lo monta en el secuenciador.
 
-Genera credenciales únicas para tu deployment:
-
-```bash
-# Para passphrase del secuenciador
-openssl rand -base64 32
-
-# Para SECRET_KEY_BASE del explorador
-openssl rand -base64 64
-
-# Para contraseña de PostgreSQL
-openssl rand -hex 16
-```
-
-### 3. Editar archivos de configuración
-
-Edita cada archivo `.env` y `passphrase` para reemplazar los valores de ejemplo:
-
-- **`stacks/da-celestia/.env`**: 
-  - Genera tus propios `DA_HEADER_NAMESPACE` y `DA_DATA_NAMESPACE` únicos
-  - Actualiza `DA_TRUSTED_HEIGHT` y `DA_TRUSTED_HASH` desde [Celestia Mocha](https://mocha.celenium.io/)
-
-- **`stacks/single-sequencer/.env`**:
-  - Usa los MISMOS namespaces que configuraste en `da-celestia/.env`
-  - Ajusta `SEQUENCER_DA_START_HEIGHT` para que coincida con `DA_TRUSTED_HEIGHT`
-
-- **`stacks/single-sequencer/passphrase`**:
-  - Reemplaza con el passphrase generado en el paso 2
-
-- **`stacks/eth-explorer/.env`**:
-  - Configura `EXPLORER_POSTGRES_PASSWORD` con una contraseña segura
-  - Configura `SECRET_KEY_BASE` con la clave generada
-
-- **`stacks/eth-faucet/.env`**:
-  - Genera una nueva clave privada (con MetaMask o `cast wallet new`)
-  - ⚠️ Nunca uses una clave que contenga fondos reales
-
-### 4. Verificar la configuración
-
-Una vez editados todos los archivos, verifica que:
-- Los namespaces sean idénticos entre `da-celestia/.env` y `single-sequencer/.env`
-- Todos los valores `XXXXXXX` hayan sido reemplazados
-- El archivo `passphrase` contenga solo el passphrase (sin comentarios)
-
----
-
-## Uso básico
-- Iniciar core (Celestia + Secuenciador) y esperar health checks:
+## Arranque y verificación
+- Arranque core con health checks:
 ```bash
 make start
 ```
-- Iniciar servicios extra (requiere el secuenciador activo):
+- Servicios extra (requiere core arriba):
 ```bash
 make start-extras
 ```
-- Estado y logs:
+- Estado y logs (targets útiles):
 ```bash
-make status
-make logs        # Core
-make logs-da     # Celestia
-make logs-sequencer
-make logs-extras
-```
-- Parar y limpiar:
-```bash
-make stop
-make stop-with-volumes   # ¡Ver advertencia de volúmenes!
-make clean               # Elimina volúmenes y redes
+make status          # ps de cada stack
+make logs-da         # logs de celestia-node
+make logs-reth       # logs del motor ev-reth
+make logs-evnode     # logs del nodo ev-node
+make logs-sequencer  # logs de todo el stack del secuenciador
 ```
 
-## Advertencia importante sobre volúmenes (wallet Celestia)
-Se recomienda NO borrar los volúmenes una vez inicializado el repositorio, ya que allí se guarda la configuración de la wallet de Celestia que genera `celestia-node` con la herramienta `cel-key`. Si elimina los volúmenes, perderá las llaves.
-
-- Para listar las claves del light node:
+### Uso manual (sin Makefile)
+- Celestia:
 ```bash
-docker exec -it celestia-node cel-key list --node.type=light
+(cd stacks/da-celestia && docker compose up -d)
+# Salud: RPC JSON-RPC p2p.Info
+curl -s -X POST -H 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"p2p.Info"}' \
+  http://localhost:26658 | jq '.'
+```
+- Sequencer (ev-reth + ev-node):
+```bash
+(cd stacks/single-sequencer && docker compose up -d)
+# Verificar EVM
+curl -s -X POST -H 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' \
+  http://localhost:8545 | jq '.'
+```
+- Extras:
+```bash
+(cd stacks/eth-explorer && docker compose up -d)
+(cd stacks/eth-faucet && docker compose up -d)
+```
+- Logs manuales por servicio:
+```bash
+(cd stacks/da-celestia && docker compose logs -f da)
+(cd stacks/single-sequencer && docker compose logs -f ev-reth-sequencer)
+(cd stacks/single-sequencer && docker compose logs -f single-sequencer)
 ```
 
-## Endpoints locales
-- Celestia DA RPC: http://localhost:26658
-- Reth (JSON-RPC): http://localhost:8545
-- Blockscout (frontend): http://localhost:3000
-- Faucet: http://localhost:8081
+## Cambios técnicos relevantes (resumen)
+- Celestia:
+  - Se eliminó `celestia-appd` del stack; el light node se conecta a Mocha Core público.
+  - Healthcheck actualizado a `p2p.Info`; `TLSEnabled=false` por compatibilidad con el endpoint.
+  - Se corrigió la duplicación de `State.TxWorkerAccounts` en `config.toml` (init idempotente).
+- Sequencer:
+  - Sidecar `jwt-init-sequencer` genera `jwt.hex` para AuthRPC.
+  - NUEVO sidecar `passphrase-init-sequencer` que crea el passphrase en un volumen dedicado.
+  - `entrypoint.sequencer.sh` resuelve automáticamente el `EVM_GENESIS_HASH` desde Reth si no se define.
+- Makefile:
+  - Nuevos targets `logs-reth` y `logs-evnode`; `logs` ahora muestra resumen y deja el seguimiento a targets específicos.
+- Seguridad:
+  - `.gitignore` excluye `.env` y secretos; no hay passphrase en el repo.
 
-## Seguridad
-
-Este repositorio incluye protección para información sensible mediante `.gitignore`. Los archivos `.env` y `passphrase` **NO** deben incluirse en Git.
-
-Para más información sobre prácticas de seguridad, consulta: **[SECURITY.md](SECURITY.md)**
-
-⚠️ **Recordatorio**: Nunca compartas tus archivos `.env` reales o el archivo `passphrase`.
+## Solución de problemas (rápido)
+- Celestia no “healthy”: revisa `p2p.Info`, `DA_CORE_*` y que el archivo `.initialized` exista en el volumen.
+- Sequencer no produce bloques: valida JWT montado, URLs del engine (`8551`) y ETH (`8545`), y namespaces de DA.
+- Explorer/Faucet: asegúrate que el sequencer esté arriba y que las variables de conexión estén correctas.
 
 ## Créditos
-- Basado en ev-toolbox (EVStack). Este repo añade hardening en la inicialización de Celestia para evitar duplicaciones en `[State]` y facilita el flujo local con Makefile.
+Basado en EVStack. Adaptado y endurecido para un flujo local coherente, con generación automática de secretos (JWT/passphrase), health-checks reales y documentación unificada en este README.

@@ -117,3 +117,4 @@ ENV/
 
 # Override files locales
 docker-compose.override.yml
+stacks/single-sequencer/passphrase

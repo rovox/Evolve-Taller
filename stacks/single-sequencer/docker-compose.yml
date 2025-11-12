@@ -17,6 +17,23 @@ services:
         openssl rand -hex 32 | tr -d '\n' > /jwt/jwt.hex;
       fi"
 
+  passphrase-init-sequencer:
+    container_name: passphrase-init-sequencer
+    image: alpine:3.22.0
+    volumes:
+      - passphrase-sequencer:/passphrase
+    healthcheck:
+      test: [CMD, test, -f, /passphrase/passphrase]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+    command: >
+      /bin/sh -c "mkdir -p /passphrase &&
+      if [ ! -f /passphrase/passphrase ]; then
+        apk add --no-cache openssl &&
+        openssl rand -base64 32 | tr -d '\n' > /passphrase/passphrase;
+      fi"
+
   ev-reth-sequencer:
     container_name: ev-reth-sequencer
     image: ghcr.io/evstack/ev-reth:v0.1.0
@@ -70,10 +87,12 @@ services:
     depends_on:
       ev-reth-sequencer:
         condition: service_started
+      passphrase-init-sequencer:
+        condition: service_completed_successfully
     volumes:
       - sequencer-data:/root/.evm-single
       - jwttoken-sequencer:/root/jwt:ro
-      - ./passphrase:/root/passphrase:ro
+      - passphrase-sequencer:/root/passphrase:ro
       - sequencer-export:/volumes/sequencer_export
       - ./entrypoint.sequencer.sh:/usr/bin/entrypoint.sh
       - ../../lib/logging.sh:/usr/local/lib/logging.sh:ro
@@ -83,7 +102,7 @@ services:
       - EVM_ETH_URL=http://ev-reth-sequencer:8545
       - EVM_JWT_SECRET_FILE=/root/jwt/jwt.hex
       - EVM_BLOCK_TIME=500ms
-      - EVM_SIGNER_PASSPHRASE_FILE=/root/passphrase
+      - EVM_SIGNER_PASSPHRASE_FILE=/root/passphrase/passphrase
       - DA_BLOCK_TIME=30s
       - DA_ADDRESS=http://celestia-node:26658
       - DA_HEADER_NAMESPACE=${SEQUENCER_DA_HEADER_NAMESPACE}
@@ -100,6 +119,8 @@ services:
 
 volumes:
   jwttoken-sequencer:
+    driver: local
+  passphrase-sequencer:
     driver: local
   ev-reth-sequencer-data:
     driver: local
