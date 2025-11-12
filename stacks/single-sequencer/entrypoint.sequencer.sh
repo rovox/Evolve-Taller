@@ -172,18 +172,57 @@ default_flags="${default_flags} --home=${CONFIG_HOME}"
 
 log "SUCCESS" "Configuration flags prepared successfully"
 
-# If no arguments passed, show help
+# Static runtime flags that were previously in compose
+static_flags="--evnode.rpc.address=0.0.0.0:7331 \
+--evnode.p2p.listen_address=/ip4/0.0.0.0/tcp/7676 \
+--evnode.instrumentation.prometheus \
+--evnode.instrumentation.prometheus_listen_addr=:26660 \
+--evnode.rpc.enable_da_visualization"
+
+# Optional DA tuning flags via env
+if [ -n "${DA_BLOCK_TIME:-}" ]; then
+	default_flags="$default_flags --evnode.da.block_time $DA_BLOCK_TIME"
+	log "DEBUG" "Added DA block time: $DA_BLOCK_TIME"
+fi
+
+if [ -n "${DA_MAX_SUBMIT_ATTEMPTS:-}" ]; then
+	default_flags="$default_flags --evnode.da.max_submit_attempts $DA_MAX_SUBMIT_ATTEMPTS"
+	log "DEBUG" "Added DA max submit attempts: $DA_MAX_SUBMIT_ATTEMPTS"
+fi
+
+if [ -n "${DA_GAS_PRICE:-}" ]; then
+	default_flags="$default_flags --evnode.da.gas_price $DA_GAS_PRICE"
+	log "DEBUG" "Added DA gas price: $DA_GAS_PRICE"
+fi
+
+if [ -n "${DA_GAS_MULTIPLIER:-}" ]; then
+	default_flags="$default_flags --evnode.da.gas_multiplier $DA_GAS_MULTIPLIER"
+	log "DEBUG" "Added DA gas multiplier: $DA_GAS_MULTIPLIER"
+fi
+
+# Optional logging verbosity
+if [ -n "${EVNODE_LOG_LEVEL:-}" ]; then
+	default_flags="$default_flags --evnode.log.level=$EVNODE_LOG_LEVEL"
+	log "DEBUG" "Set log level: $EVNODE_LOG_LEVEL"
+fi
+
+if [ "${EVNODE_LOG_TRACE:-}" = "true" ] || [ "${EVNODE_LOG_TRACE:-}" = "1" ]; then
+	default_flags="$default_flags --evnode.log.trace"
+	log "DEBUG" "Enabled log trace"
+fi
+
+# If no arguments passed, start with defaults
 if [ $# -eq 0 ]; then
-	log "INFO" "No arguments provided, showing help"
-	exec evm-single
+	log "INIT" "No CLI args provided, starting evm-single with defaults"
+	eval "exec evm-single start $default_flags $static_flags"
 fi
 
 # If first argument is "start", apply default flags
 if [ "$1" = "start" ]; then
 	shift
-	log "INIT" "Starting EVM sequencer with command: evm-single start $default_flags $*"
+	log "INIT" "Starting EVM sequencer with command: evm-single start $default_flags $static_flags $*"
 	log "INFO" "Sequencer is now starting up..."
-	eval "exec evm-single start $default_flags \"\$@\""
+	eval "exec evm-single start $default_flags $static_flags \"$@\""
 else
 	# For any other command/subcommand, pass through directly
 	log "INFO" "Executing command: evm-single $*"
