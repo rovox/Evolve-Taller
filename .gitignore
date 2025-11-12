@@ -1,0 +1,119 @@
+# ============================================
+# Archivos de configuración con datos sensibles
+# ============================================
+
+# Archivos .env con credenciales y namespaces privados
+stacks/da-celestia/.env
+stacks/single-sequencer/.env
+stacks/eth-explorer/.env
+stacks/eth-faucet/.env
+
+# ============================================
+# Secretos y claves privadas
+# ============================================
+
+# Passphrase del secuenciador
+stacks/single-sequencer/passphrase
+
+# JWT secrets
+stacks/single-sequencer/jwt.hex
+jwt/
+
+# ============================================
+# Volúmenes y datos de Docker
+# ============================================
+
+# Volúmenes montados (contienen wallets y datos de blockchain)
+volumes/
+**/volumes/
+
+# ============================================
+# Archivos de respaldo
+# ============================================
+
+*.backup
+*.bak
+*~
+
+# ============================================
+# Logs y archivos temporales
+# ============================================
+
+*.log
+logs/
+tmp/
+temp/
+
+# ============================================
+# Archivos del sistema operativo
+# ============================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+.directory
+
+# ============================================
+# IDEs y editores
+# ============================================
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# JetBrains IDEs (IntelliJ, WebStorm, etc.)
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# ============================================
+# Node.js (si se usan scripts auxiliares)
+# ============================================
+
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# ============================================
+# Python (si se usan scripts auxiliares)
+# ============================================
+
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+ENV/
+
+# ============================================
+# Archivos de Docker locales
+# ============================================
+
+# Override files locales
+docker-compose.override.yml

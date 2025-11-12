@@ -1,0 +1,20 @@
+# ============================================
+# Passphrase del Secuenciador
+# ============================================
+#
+# Este archivo contiene el passphrase usado para desbloquear
+# la cuenta del secuenciador en el nodo Reth.
+#
+# ¡GENERA TU PROPIO PASSPHRASE SEGURO!
+#
+# Puedes generar uno con:
+#   openssl rand -base64 32
+#
+# IMPORTANTE:
+# - No compartas este archivo
+# - Usa un valor diferente para cada deployment
+# - Guárdalo de forma segura (este archivo está en .gitignore)
+#
+# Reemplaza la línea siguiente con tu passphrase generado:
+
+TU_PASSPHRASE_GENERADO_AQUI
