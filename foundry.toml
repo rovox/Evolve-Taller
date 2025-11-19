@@ -1,0 +1,8 @@
+[profile.default]
+src = "contracts/src"
+out = "contracts/out"
+libs = ["contracts/lib"]
+
+# remappings updated to point to forge-std inside `contracts`
+remappings = ["forge-std/=contracts/lib/forge-std/src/"]
+# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

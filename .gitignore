@@ -133,3 +133,8 @@ out/
 docs/
 .env
 
+# === Entries merged from contracts/lib/forge-std/.gitignore ===
+# Editor and build ignores for forge-std
+.vscode
+.idea
+
