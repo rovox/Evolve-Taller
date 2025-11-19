@@ -13,16 +13,18 @@ services:
     entrypoint: [/bin/bash, /entrypoint.sh]
     ports:
       - $DA_RPC_PORT:26658
+      - 2121:2121/tcp
+      - 2121:2121/udp
     dns:
-      - 8.8.8.8
-      - 8.8.4.4
+      - 1.1.1.1
+      - 1.0.0.1
     healthcheck:
       # Use a lightweight JSON-RPC call to verify node responsiveness (p2p.Info is cheap and always available)
       test: ["CMD-SHELL", "curl -s -X POST -H 'Content-Type: application/json' --data '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"p2p.Info\"}' http://localhost:26658 | grep -q 'result' "]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 30s
+      retries: 5
+      start_period: 120s
     networks:
       - evstack_shared
 
@@ -33,3 +35,4 @@ volumes:
 networks:
   evstack_shared:
     name: evstack_shared
+    external: true

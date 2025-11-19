@@ -32,7 +32,7 @@ if [ ! -f "$INIT_LOCK_FILE" ]; then
         if ! celestia light init \
             "--core.ip=${DA_CORE_IP}" \
             "--core.port=${DA_CORE_PORT}" \
-                "--p2p.network=${DA_NETWORK}"; then
+            "--p2p.network=${DA_NETWORK}"; then
             log "ERROR" "Failed to initialize celestia light node"
             exit 1
         fi

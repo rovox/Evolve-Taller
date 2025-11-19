@@ -7,7 +7,7 @@ stacks/da-celestia/.env
 stacks/single-sequencer/.env
 stacks/eth-explorer/.env
 stacks/eth-faucet/.env
-
+stacks/eth-indexer/.env
 # ============================================
 # Secretos y claves privadas
 # ============================================
@@ -118,3 +118,18 @@ ENV/
 # Override files locales
 docker-compose.override.yml
 stacks/single-sequencer/passphrase
+
+# === Entries merged from contracts/.gitignore ===
+# Compiler files for contracts
+cache/
+out/
+
+# Keep top-level `broadcast` but ignore some generated run folders
+!/broadcast
+/broadcast/*/31337/
+/broadcast/**/dry-run/
+
+# Documentation and dotenv
+docs/
+.env
+

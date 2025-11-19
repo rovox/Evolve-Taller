@@ -83,6 +83,7 @@ services:
     env_file: .env
     ports:
       - $SEQUENCER_EV_NODE_PROMETHEUS_PORT:26660
+      - "7331:7331" # Esto expondría el puerto 7331 del contenedor al 7331 del host
     restart: always
     depends_on:
       ev-reth-sequencer:
