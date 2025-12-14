@@ -1,7 +1,7 @@
 services:
   da:
     container_name: celestia-node
-    image: ghcr.io/celestiaorg/celestia-node:v0.28.2-mocha
+    image: ghcr.io/celestiaorg/celestia-node:v0.28.4-mocha
     env_file: .env
     restart: always
     volumes:
@@ -11,6 +11,14 @@ services:
     environment:
       - VOLUME_EXPORT_PATH=/volumes/da_export
     entrypoint: [/bin/bash, /entrypoint.sh]
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
     ports:
       - $DA_RPC_PORT:26658
       - 2121:2121/tcp
@@ -18,13 +26,19 @@ services:
     dns:
       - 1.1.1.1
       - 1.0.0.1
+      - 8.8.8.8
+      - 8.8.4.4
+    dns_search: .
+    dns_opt:
+      - use-vc
+      - no-tld-query
     healthcheck:
-      # Use a lightweight JSON-RPC call to verify node responsiveness (p2p.Info is cheap and always available)
-      test: ["CMD-SHELL", "curl -s -X POST -H 'Content-Type: application/json' --data '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"p2p.Info\"}' http://localhost:26658 | grep -q 'result' "]
+      # Verify node has synchronized headers (more reliable than p2p.Info for determining actual readiness)
+      test: ["CMD-SHELL", "curl -s -X POST -H 'Content-Type: application/json' --data '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"header.LocalHead\"}' http://localhost:26658 | grep -q 'result' || exit 1"]
       interval: 30s
       timeout: 10s
-      retries: 5
-      start_period: 120s
+      retries: 10
+      start_period: 300s
     networks:
       - evstack_shared
 

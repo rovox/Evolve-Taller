@@ -1,0 +1,4 @@
+CONTAINER ID   NAME                CPU %     MEM USAGE / LIMIT     MEM %     NET I/O           BLOCK I/O         PIDS
+9bddb1d081c7   single-sequencer    2.07%     105.5MiB / 11.56GiB   0.89%     712kB / 908kB     0B / 344kB        10
+bb9801cd27ad   ev-reth-sequencer   1.89%     228.6MiB / 11.56GiB   1.93%     894kB / 747kB     2.3MB / 19.8MB    50
+597fba3324fd   celestia-node       7.15%     193.1MiB / 11.56GiB   1.63%     72.3MB / 8.35MB   2.59MB / 49.4MB   13

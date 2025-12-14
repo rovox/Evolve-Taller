@@ -31,6 +31,14 @@ help:
 # Iniciar servicios core en orden con health checks
 start:
 	@echo "$(GREEN)🚀 Iniciando servicios core...$(RESET)"
+	@echo "$(YELLOW)Verificando red Docker...$(RESET)"
+	@if ! docker network inspect evstack_shared >/dev/null 2>&1; then \
+	    echo "$(YELLOW)Creando red 'evstack_shared'...$(RESET)"; \
+	    docker network create evstack_shared; \
+	    echo "$(GREEN)✅ Red 'evstack_shared' creada$(RESET)"; \
+	else \
+	    echo "$(GREEN)✅ Red 'evstack_shared' ya existe$(RESET)"; \
+	fi
 	@echo "$(YELLOW)Step 1/2: Iniciando Celestia DA...$(RESET)"
 	@cd stacks/da-celestia && docker compose up -d
 	@echo "$(YELLOW)⏳ Esperando a que Celestia DA esté listo...$(RESET)"

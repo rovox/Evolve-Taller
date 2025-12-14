@@ -1,0 +1,45 @@
+{
+  "timestamp": "2025-12-09T10:08:06-04:00",
+  "chain_id": 1234,
+  "deployer": "0x24150227Be6732d4D82B4711Cceddd555b0524C0",
+  "private_key": "0xb29f0756244fd1a7a925993dfe81b93716840f57324c8af79f2e3020219c549d",
+  "rpc_url": "http://localhost:8545",
+  "contracts": {
+    "ROSCA": {
+      "address": "0x3eb22e0fd63cec1cc01652ca26e8f471347e8f5d"
+    },
+    "Greeter": {
+      "address": "0x2afb9b42403bf71b918af7df6dedfc86355831a4",
+      "tx_hash": "0x9db6e5a3d5d04d39cd074d71d2f73795e69d3a3e553e99b70fc66f2161a65e17",
+      "evm_block": 7668,
+      "celestia_height": "pending",
+      "celenium_url": "https://mocha.celenium.io/block/pending"
+    },
+    "Greeter_setGreeting": {
+      "tx_hash": "0xbffd8154c623318d700c3c41325a2f759a74d7f7c687c86263a3275ef94b4dbc",
+      "evm_block": 7669,
+      "celestia_height": "pending",
+      "celenium_url": "https://mocha.celenium.io/block/pending"
+    },
+    "ROSCA_createGroup": {
+      "tx_hash": "0x46243bb835da75daecb2694d318084e09047f65dd7d3926b96cd4bc3cf6458b0",
+      "evm_block": 7670,
+      "celestia_height": "pending",
+      "celenium_url": "https://mocha.celenium.io/block/pending"
+    },
+    "ROSCA_joinGroup": {
+      "tx_hash": "0x11fa0524e616faf2c6880f820132a6438952296da8febf2bb02c4bf5918c9118",
+      "evm_block": 7672,
+      "celestia_height": "pending",
+      "celenium_url": "https://mocha.celenium.io/block/pending"
+    },
+    "ROSCA_contribute": {
+      "tx_hash": "0xc0d825bc4515298fe55a3d9f330ba58cbfd327a6970fed6246879f039717a256",
+      "evm_block": 7673,
+      "celestia_height": "pending",
+      "celenium_url": "https://mocha.celenium.io/block/pending"
+    }
+  },
+  "transactions": [],
+  "last_updated": "2025-12-09T10:08:33-04:00"
+}

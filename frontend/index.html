@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,14 +11,14 @@
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 20px;
         }
-        
+
         .container {
             max-width: 1200px;
             margin: 0 auto;
@@ -26,23 +27,23 @@
             padding: 30px;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
         }
-        
+
         .header {
             text-align: center;
             margin-bottom: 40px;
         }
-        
+
         .header h1 {
             color: #2c3e50;
             font-size: 2.5em;
             margin-bottom: 10px;
         }
-        
+
         .header p {
             color: #7f8c8d;
             font-size: 1.1em;
         }
-        
+
         .connection-status {
             padding: 15px;
             border-radius: 10px;
@@ -50,25 +51,25 @@
             text-align: center;
             font-weight: 500;
         }
-        
+
         .connected {
             background: #d4edda;
             color: #155724;
             border: 1px solid #c3e6cb;
         }
-        
+
         .disconnected {
             background: #f8d7da;
             color: #721c24;
             border: 1px solid #f5c6cb;
         }
-        
+
         .tabs {
             display: flex;
             margin-bottom: 30px;
             border-bottom: 2px solid #ecf0f1;
         }
-        
+
         .tab {
             flex: 1;
             padding: 15px;
@@ -80,32 +81,33 @@
             color: #7f8c8d;
             transition: all 0.3s ease;
         }
-        
+
         .tab.active {
             color: #3498db;
             border-bottom: 3px solid #3498db;
         }
-        
+
         .tab-content {
             display: none;
         }
-        
+
         .tab-content.active {
             display: block;
         }
-        
+
         .form-group {
             margin-bottom: 20px;
         }
-        
+
         .form-group label {
             display: block;
             margin-bottom: 8px;
             color: #2c3e50;
             font-weight: 500;
         }
-        
-        .form-group input, .form-group select {
+
+        .form-group input,
+        .form-group select {
             width: 100%;
             padding: 12px;
             border: 2px solid #ecf0f1;
@@ -113,12 +115,13 @@
             font-size: 1em;
             transition: border-color 0.3s ease;
         }
-        
-        .form-group input:focus, .form-group select:focus {
+
+        .form-group input:focus,
+        .form-group select:focus {
             outline: none;
             border-color: #3498db;
         }
-        
+
         .btn {
             background: linear-gradient(45deg, #3498db, #2980b9);
             color: white;
@@ -130,21 +133,21 @@
             transition: transform 0.2s ease;
             margin-right: 10px;
         }
-        
+
         .btn:hover {
             transform: translateY(-2px);
         }
-        
+
         .btn:disabled {
             background: #bdc3c7;
             cursor: not-allowed;
             transform: none;
         }
-        
+
         .btn-secondary {
             background: linear-gradient(45deg, #95a5a6, #7f8c8d);
         }
-        
+
         .card {
             background: #f8f9fa;
             border-radius: 10px;
@@ -152,37 +155,37 @@
             margin-bottom: 20px;
             border-left: 4px solid #3498db;
         }
-        
+
         .card h3 {
             color: #2c3e50;
             margin-bottom: 15px;
         }
-        
+
         .info-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 15px;
             margin-bottom: 20px;
         }
-        
+
         .info-item {
             background: white;
             padding: 15px;
             border-radius: 8px;
             border: 1px solid #ecf0f1;
         }
-        
+
         .info-item strong {
             color: #2c3e50;
         }
-        
+
         .members-list {
             background: white;
             border-radius: 8px;
             padding: 15px;
             margin-top: 15px;
         }
-        
+
         .member-item {
             display: flex;
             justify-content: space-between;
@@ -190,33 +193,33 @@
             padding: 10px 0;
             border-bottom: 1px solid #ecf0f1;
         }
-        
+
         .member-item:last-child {
             border-bottom: none;
         }
-        
+
         .status-badge {
             padding: 4px 8px;
             border-radius: 4px;
             font-size: 0.8em;
             font-weight: 500;
         }
-        
+
         .status-paid {
             background: #d4edda;
             color: #155724;
         }
-        
+
         .status-pending {
             background: #fff3cd;
             color: #856404;
         }
-        
+
         .status-winner {
             background: #d1ecf1;
             color: #0c5460;
         }
-        
+
         .loading {
             display: inline-block;
             width: 20px;
@@ -226,12 +229,17 @@
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
-        
+
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
-        
+
         .error {
             background: #f8d7da;
             color: #721c24;
@@ -240,7 +248,106 @@
             margin: 15px 0;
             border: 1px solid #f5c6cb;
         }
-        
+
+        /* Deployment Metadata Styles */
+        .deployment-metadata {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .deployment-metadata h3 {
+            margin: 0 0 15px 0;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .metadata-grid {
+            display: grid;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .contract-info,
+        .network-info {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 4px solid #4ade80;
+            backdrop-filter: blur(10px);
+        }
+
+        .contract-info code,
+        .network-info code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            word-break: break-all;
+            display: inline-block;
+            margin: 4px 0;
+        }
+
+        .tx-info {
+            margin-top: 8px;
+            font-size: 0.9em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .tx-info small {
+            opacity: 0.9;
+        }
+
+        .celestia-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            color: #4ade80;
+            text-decoration: none;
+            padding: 4px 10px;
+            background: rgba(74, 222, 128, 0.2);
+            border-radius: 6px;
+            transition: all 0.2s;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+
+        .celestia-link:hover {
+            background: rgba(74, 222, 128, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 2px 8px rgba(74, 222, 128, 0.3);
+        }
+
+        .pending {
+            color: #fbbf24;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+
+        .btn-refresh {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.2s;
+        }
+
+        .btn-refresh:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+
         .success {
             background: #d4edda;
             color: #155724;
@@ -249,29 +356,180 @@
             margin: 15px 0;
             border: 1px solid #c3e6cb;
         }
+
+        /* Estilos para las estadísticas de Celestia */
+        .celestia-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #e9ecef;
+        }
+
+        .stat-item {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .stat-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-label {
+            display: block;
+            font-size: 0.85em;
+            color: #6c757d;
+            margin-bottom: 4px;
+        }
+
+        .stat-value {
+            font-weight: 600;
+            color: #2c3e50;
+            word-break: break-word;
+        }
+
+        /* Estilos para las transacciones */
+        .celestia-tx {
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            border-left: 4px solid #8e44ad;
+        }
+
+        .celestia-tx .tx-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .tx-hash-container {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .tx-hash-label {
+            font-size: 0.8em;
+            color: #6c757d;
+        }
+
+        .tx-hash {
+            font-family: 'Courier New', monospace;
+            color: #3498db;
+            cursor: pointer;
+            word-break: break-all;
+        }
+
+        .tx-hash:hover {
+            text-decoration: underline;
+        }
+
+        /* Animaciones */
+        @keyframes highlight {
+            0% {
+                background-color: rgba(142, 68, 173, 0.2);
+            }
+
+            100% {
+                background-color: transparent;
+            }
+        }
+
+        .highlight {
+            animation: highlight 2s ease-out;
+        }
+
+        /* Botones de acción */
+        .tx-actions {
+            margin-top: 12px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .btn-sm {
+            padding: 4px 12px;
+            font-size: 0.85em;
+            border-radius: 4px;
+        }
+
+        /* Mejoras para móviles */
+        @media (max-width: 768px) {
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .celestia-stats {
+                grid-template-columns: 1fr;
+            }
+
+            .tx-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+
+            .status-badge {
+                align-self: flex-start;
+            }
+        }
+
+        /* Estilos para mensajes de carga y error */
+        .error-message {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 10px 0;
+            border-left: 4px solid #f5c6cb;
+        }
+
+        .error-message pre {
+            background: rgba(0, 0, 0, 0.05);
+            padding: 8px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 0.85em;
+            margin-top: 8px;
+        }
     </style>
 </head>
+
 <body>
     <div class="container">
         <div class="header">
             <h1>🏦 ROSCA Demo</h1>
             <p>Rotating Savings and Credit Association - Pasanaku Digital</p>
         </div>
-        
+
         <div id="connectionStatus" class="connection-status disconnected">
             <span id="statusText">No wallet connected</span>
             <button id="connectBtn" class="btn" style="margin-left: 15px;">Connect Wallet</button>
-            <button id="disconnectBtn" class="btn btn-secondary" style="margin-left: 10px; display: none;">Disconnect</button>
-            <div id="contractBalance" style="margin-top:10px; font-size:0.95em; color:#2c3e50;">Contract balance: <span id="balanceValue">-</span></div>
+            <button id="connectLocalBtn" class="btn btn-secondary" style="margin-left: 10px;">Local Wallet
+                (Burner)</button>
+            <button id="disconnectBtn" class="btn btn-secondary"
+                style="margin-left: 10px; display: none;">Disconnect</button>
+            <div id="contractBalance" style="margin-top:10px; font-size:0.95em; color:#2c3e50;">Contract balance: <span
+                    id="balanceValue">-</span></div>
         </div>
-        
+
         <div class="tabs">
             <button class="tab active" data-tab="create">Create Group</button>
             <button class="tab" data-tab="join">Join Group</button>
             <button class="tab" data-tab="contribute">Contribute</button>
             <button class="tab" data-tab="view">View Groups</button>
+            <button class="tab" data-tab="celestia">Celestia Activity</button>
         </div>
-        
+
         <!-- Create Group Tab -->
         <div id="create" class="tab-content active">
             <div class="card">
@@ -293,7 +551,7 @@
                 </form>
             </div>
         </div>
-        
+
         <!-- Join Group Tab -->
         <div id="join" class="tab-content">
             <div class="card">
@@ -305,7 +563,7 @@
                     </div>
                     <button type="submit" class="btn">Join Group</button>
                 </form>
-                
+
                 <div id="groupPreview" style="display: none;">
                     <h4>Group Preview</h4>
                     <div class="info-grid">
@@ -325,7 +583,7 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- Contribute Tab -->
         <div id="contribute" class="tab-content">
             <div class="card">
@@ -339,7 +597,7 @@
                 </form>
             </div>
         </div>
-        
+
         <!-- View Groups Tab -->
         <div id="view" class="tab-content">
             <div class="card">
@@ -348,7 +606,32 @@
                 <div id="groupsList"></div>
             </div>
         </div>
-        
+
+        <!-- Celestia Activity Tab -->
+        <div id="celestia" class="tab-content">
+            <div class="card">
+                <h3>Actividad de Celestia</h3>
+                <p style="margin-bottom: 15px; color: #7f8c8d;">
+                    Monitoreo de transacciones y disponibilidad de datos en Celestia.
+                    <br>
+                    Secuenciador:
+                    <a href="https://mocha.celenium.io/address/celestia1j4rkmm42vhdf8t2lggzmm6hfdu9u6agqatm7eh"
+                        target="_blank" style="color: #3498db; text-decoration: none;">
+                        celestia1j4...tm7eh
+                    </a>
+                </p>
+                <div class="actions" style="margin-bottom: 20px;">
+                    <button id="refreshCelestiaBtn" class="btn btn-secondary">
+                        <span class="btn-icon">🔄</span> Actualizar
+                    </button>
+                    <button id="toggleAutoRefresh" class="btn btn-secondary">
+                        <span class="btn-icon">⏯️</span> Auto-actualizar
+                    </button>
+                </div>
+                <div id="celestiaList"></div>
+            </div>
+        </div>
+
         <div id="messages"></div>
     </div>
 
@@ -356,4 +639,5 @@
     <script src="https://cdn.jsdelivr.net/npm/jazzicon@1.1.1/dist/jazzicon.min.js"></script>
     <script src="app.js"></script>
 </body>
+
 </html>

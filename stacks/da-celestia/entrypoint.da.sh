@@ -14,6 +14,49 @@ set -u
 LIGHT_NODE_CONFIG_PATH=/home/celestia/config.toml
 INIT_LOCK_FILE=/home/celestia/.initialized
 
+# Auto-fetch latest trusted height and hash from RPC if not hardcoded or stale
+log "INFO" "Fetching latest trusted sync point from Celestia RPC..."
+RPC_URL="https://rpc-mocha.pops.one"
+
+# Attempt to auto-fetch with timeout and error handling (don't fail script if this fails)
+FETCH_SUCCESS=false
+LATEST_HEIGHT=""
+
+# Get latest block height with explicit timeout (15s connect, 30s max)
+if command -v jq >/dev/null 2>&1; then
+    # Prefer jq for reliable JSON parsing
+    LATEST_HEIGHT=$(curl -s --connect-timeout 15 --max-time 30 "${RPC_URL}/block" 2>/dev/null | jq -r '.result.block.header.height // empty' 2>/dev/null) || true
+else
+    # Fallback to grep-based parsing
+    LATEST_HEIGHT=$(curl -s --connect-timeout 15 --max-time 30 "${RPC_URL}/block" 2>/dev/null | grep -o '"height":"[0-9]*"' | head -1 | grep -o '[0-9]*') || true
+fi
+
+if [ -n "$LATEST_HEIGHT" ] && [ "$LATEST_HEIGHT" -gt 0 ] 2>/dev/null; then
+    # Use a height slightly behind latest for stability (10 blocks ≈ 1.5 minutes)
+    SAFE_HEIGHT=$((LATEST_HEIGHT - 10))
+    log "INFO" "Latest block height: $LATEST_HEIGHT, using safe height: $SAFE_HEIGHT"
+    
+    # Fetch the block hash at the safe height
+    BLOCK_HASH=""
+    if command -v jq >/dev/null 2>&1; then
+        BLOCK_HASH=$(curl -s --connect-timeout 15 --max-time 30 "${RPC_URL}/block?height=${SAFE_HEIGHT}" 2>/dev/null | jq -r '.result.block_id.hash // empty' 2>/dev/null) || true
+    else
+        BLOCK_HASH=$(curl -s --connect-timeout 15 --max-time 30 "${RPC_URL}/block?height=${SAFE_HEIGHT}" 2>/dev/null | grep -o '"hash":"[A-F0-9]*"' | head -1 | sed 's/"hash":"\([^"]*\)"/\1/') || true
+    fi
+    
+    if [ -n "$BLOCK_HASH" ]; then
+        DA_TRUSTED_HEIGHT="$SAFE_HEIGHT"
+        DA_TRUSTED_HASH="$BLOCK_HASH"
+        FETCH_SUCCESS=true
+        log "SUCCESS" "Auto-fetched trusted state: height=$DA_TRUSTED_HEIGHT, hash=$DA_TRUSTED_HASH"
+    else
+        log "WARN" "Could not fetch block hash, using .env values: height=${DA_TRUSTED_HEIGHT}, hash=${DA_TRUSTED_HASH:0:16}..."
+    fi
+else
+    log "WARN" "Could not fetch latest height from RPC (timeout or connectivity issue)"
+    log "INFO" "Using .env values: height=${DA_TRUSTED_HEIGHT}, hash=${DA_TRUSTED_HASH:0:16}..."
+fi
+
 if [ ! -f "$INIT_LOCK_FILE" ]; then
     log "INIT" "Starting Celestia Light Node initialization"
     log "INFO" "Light node config path: $LIGHT_NODE_CONFIG_PATH"
@@ -40,32 +83,47 @@ if [ ! -f "$INIT_LOCK_FILE" ]; then
 
         log "CONFIG" "Updating configuration with latest trusted state"
 
-        if ! sed -i.bak \
-            -e "s/\(TrustedHash[[:space:]]*=[[:space:]]*\).*/\1\"$DA_TRUSTED_HASH\"/" \
-            -e "s/\(SampleFrom[[:space:]]*=[[:space:]]*\).*/\1$DA_TRUSTED_HEIGHT/" \
-            "$LIGHT_NODE_CONFIG_PATH"; then
-            log "ERROR" "Failed to update config with latest trusted state"
+        # Update StartupTimeout to 180s within [Node] section (critical for sync completion)
+        log "CONFIG" "Setting StartupTimeout to 180s in [Node] section"
+        if ! sed -i '/^\[Node\]/,/^\[/{s/^[[:space:]]*StartupTimeout[[:space:]]*=.*/  StartupTimeout = "180s"/}' "$LIGHT_NODE_CONFIG_PATH"; then
+            log "ERROR" "Failed to update StartupTimeout"
             exit 1
         fi
-        log "SUCCESS" "Config updated with latest trusted state"
+        log "SUCCESS" "StartupTimeout set to 180s"
 
-        # Update DASer.SampleFrom
-        log "CONFIG" "Updating DASer.SampleFrom to: $DA_TRUSTED_HEIGHT"
-        if ! sed -i 's/^[[:space:]]*SampleFrom = .*/  SampleFrom = '$DA_TRUSTED_HEIGHT'/' "$LIGHT_NODE_CONFIG_PATH"; then
-            log "ERROR" "Failed to update DASer.SampleFrom"
+        # Update RPC configuration for external access within [RPC] section
+        log "CONFIG" "Configuring RPC for external access (0.0.0.0) in [RPC] section"
+        if ! sed -i '/^\[RPC\]/,/^\[/{s/^[[:space:]]*Address[[:space:]]*=.*/  Address = "0.0.0.0"/}' "$LIGHT_NODE_CONFIG_PATH"; then
+            log "ERROR" "Failed to update RPC Address"
             exit 1
         fi
-        log "SUCCESS" "DASer.SampleFrom updated successfully"
+        log "SUCCESS" "RPC Address set to 0.0.0.0"
 
-        # Update Header.TrustedHash
-        log "CONFIG" "Updating Header.TrustedHash to: $DA_TRUSTED_HASH"
+        # Enable SkipAuth for RPC within [RPC] section
+        log "CONFIG" "Enabling RPC SkipAuth in [RPC] section"
+        if ! sed -i '/^\[RPC\]/,/^\[/{s/^[[:space:]]*SkipAuth[[:space:]]*=.*/  SkipAuth = true/}' "$LIGHT_NODE_CONFIG_PATH"; then
+            log "ERROR" "Failed to enable SkipAuth"
+            exit 1
+        fi
+        log "SUCCESS" "RPC SkipAuth enabled"
+
+        # Update Header.Syncer.SyncFromHeight (correct field name for v0.28+)
+        log "CONFIG" "Updating Header.Syncer.SyncFromHeight to: $DA_TRUSTED_HEIGHT"
+        if ! sed -i '/\[Header\.Syncer\]/,/^\[/{s/^[[:space:]]*SyncFromHeight[[:space:]]*=.*/  SyncFromHeight = '$DA_TRUSTED_HEIGHT'/}' "$LIGHT_NODE_CONFIG_PATH"; then
+            log "ERROR" "Failed to update SyncFromHeight"
+            exit 1
+        fi
+        log "SUCCESS" "SyncFromHeight updated successfully"
+
+        # Update Header.Syncer.SyncFromHash (correct field name for v0.28+)
+        log "CONFIG" "Updating Header.Syncer.SyncFromHash to: $DA_TRUSTED_HASH"
         # Escape special characters for sed
         TRUSTED_HASH_ESCAPED=$(printf '%s\n' "$DA_TRUSTED_HASH" | sed 's/[[\.*^$()+?{|]/\\&/g')
-        if ! sed -i 's/^[[:space:]]*TrustedHash = .*/  TrustedHash = "'"$TRUSTED_HASH_ESCAPED"'"/' "$LIGHT_NODE_CONFIG_PATH"; then
-            log "ERROR" "Failed to update Header.TrustedHash"
+        if ! sed -i '/\[Header\.Syncer\]/,/^\[/{s/^[[:space:]]*SyncFromHash[[:space:]]*=.*/  SyncFromHash = "'"$TRUSTED_HASH_ESCAPED"'"/}' "$LIGHT_NODE_CONFIG_PATH"; then
+            log "ERROR" "Failed to update SyncFromHash"
             exit 1
         fi
-        log "SUCCESS" "Header.TrustedHash updated successfully"
+        log "SUCCESS" "SyncFromHash updated successfully"
 
         log "SUCCESS" "Configuration completed - Trusted height: $DA_TRUSTED_HEIGHT, Trusted hash: $DA_TRUSTED_HASH"
 
@@ -113,7 +171,35 @@ if [ ! -f "$INIT_LOCK_FILE" ]; then
         log "WARN" "Configuration may re-run on next restart"
     fi
 else
-    log "INFO" "Node already initialized, skipping configuration. Lock file present at $INIT_LOCK_FILE"
+    log "INFO" "Node already initialized. Lock file present at $INIT_LOCK_FILE"
+    
+    # CRITICAL: Always ensure StartupTimeout and RPC config are correct, even on existing volumes
+    if [ -f "$LIGHT_NODE_CONFIG_PATH" ]; then
+        log "CONFIG" "Verifying critical config values on existing volume..."
+        
+        # Check and fix StartupTimeout if needed
+        CURRENT_TIMEOUT=$(grep -E '^[[:space:]]*StartupTimeout' "$LIGHT_NODE_CONFIG_PATH" | head -1 | grep -oE '"[^"]+"' | tr -d '"')
+        if [ "$CURRENT_TIMEOUT" != "180s" ]; then
+            log "WARN" "StartupTimeout is $CURRENT_TIMEOUT, updating to 180s"
+            sed -i '/^\[Node\]/,/^\[/{s/^[[:space:]]*StartupTimeout[[:space:]]*=.*/  StartupTimeout = "180s"/}' "$LIGHT_NODE_CONFIG_PATH" || true
+        fi
+        
+        # Check and fix RPC Address if needed
+        CURRENT_ADDR=$(sed -n '/^\[RPC\]/,/^\[/{s/^[[:space:]]*Address[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p}' "$LIGHT_NODE_CONFIG_PATH" | head -1)
+        if [ "$CURRENT_ADDR" != "0.0.0.0" ]; then
+            log "WARN" "RPC Address is $CURRENT_ADDR, updating to 0.0.0.0"
+            sed -i '/^\[RPC\]/,/^\[/{s/^[[:space:]]*Address[[:space:]]*=.*/  Address = "0.0.0.0"/}' "$LIGHT_NODE_CONFIG_PATH" || true
+        fi
+        
+        # Check and fix SkipAuth if needed
+        CURRENT_SKIPAUTH=$(sed -n '/^\[RPC\]/,/^\[/{s/^[[:space:]]*SkipAuth[[:space:]]*=[[:space:]]*\(.*\)/\1/p}' "$LIGHT_NODE_CONFIG_PATH" | head -1)
+        if [ "$CURRENT_SKIPAUTH" != "true" ]; then
+            log "WARN" "RPC SkipAuth is $CURRENT_SKIPAUTH, updating to true"
+            sed -i '/^\[RPC\]/,/^\[/{s/^[[:space:]]*SkipAuth[[:space:]]*=.*/  SkipAuth = true/}' "$LIGHT_NODE_CONFIG_PATH" || true
+        fi
+        
+        log "SUCCESS" "Critical config values verified/updated"
+    fi
 fi
 
 log "INIT" "Starting Celestia light node"
