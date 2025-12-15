@@ -1,0 +1,70 @@
+{
+  "timestamp": "2025-12-14T19:56:24.347006",
+  "rpc_url": "http://localhost:8545",
+  "deployer": "0x24150227Be6732d4D82B4711Cceddd555b0524C0",
+  "deployment": {
+    "contract_address": "0xE6bB2CA6030EF4A80dECBA94994029d6b22305F5",
+    "transaction_hash": "0x7d9dc9aa76332171593e39dfb899d816f7d28284fb4b728e99ad3b1635a69381",
+    "block_number": 5575,
+    "gas_used": 2648141,
+    "deployer": "0x24150227Be6732d4D82B4711Cceddd555b0524C0",
+    "status": "success"
+  },
+  "tests": [],
+  "celestia": {
+    "balance": 2425961,
+    "address": "celestia19f8j7rdes7rfnvlmsgafrpjxhgjayln9jqg6y6",
+    "recent_submissions": {
+      "successful": 0,
+      "failed": 0
+    }
+  },
+  "summary": {
+    "deployment_success": true,
+    "contract_verified": true,
+    "celestia_balance": 2425961,
+    "timestamp": "2025-12-14T19:56:24.347006"
+  },
+  "chain_id": 1234,
+  "initial_block": 5702,
+  "mempool": {
+    "pending": 0,
+    "queued": 0
+  },
+  "rpc_endpoints": [
+    {
+      "method": "eth_chainId",
+      "success": true,
+      "result": "0x4d2"
+    },
+    {
+      "method": "eth_blockNumber",
+      "success": true,
+      "result": "0x1646"
+    },
+    {
+      "method": "eth_getBalance",
+      "success": true,
+      "result": "0x4a47e3c11c09a45b2f4fd6"
+    },
+    {
+      "method": "eth_getTransactionCount",
+      "success": true,
+      "result": "0x1"
+    },
+    {
+      "method": "txpool_status",
+      "success": true,
+      "result": {
+        "pending": "0x0",
+        "queued": "0x0"
+      }
+    },
+    {
+      "method": "eth_call (groupCounter)",
+      "success": false,
+      "result": null
+    }
+  ],
+  "final_block": 5704
+}

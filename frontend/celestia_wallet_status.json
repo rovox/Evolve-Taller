@@ -1,0 +1,16 @@
+{
+  "timestamp": "2025-12-14T19:56:57.696674",
+  "wallet": {
+    "address": "celestia19f8j7rdes7rfnvlmsgafrpjxhgjayln9jqg6y6",
+    "balance": 2424171,
+    "denom": "utia",
+    "estimated_capacity": 24
+  },
+  "activity": {
+    "successful_submissions": 0,
+    "failed_submissions": 0,
+    "insufficient_funds_errors": 0,
+    "total_attempts": 0
+  },
+  "alerts": []
+}

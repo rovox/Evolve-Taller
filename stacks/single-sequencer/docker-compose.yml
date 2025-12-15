@@ -79,7 +79,7 @@ services:
 
   single-sequencer:
     container_name: single-sequencer
-    image: ghcr.io/evstack/ev-node-evm-single:v1.0.0-beta.8
+    image: ghcr.io/evstack/ev-node-evm-single:v1.0.0-beta.10
     env_file: .env
     ports:
       - $SEQUENCER_EV_NODE_PROMETHEUS_PORT:26660
@@ -117,6 +117,30 @@ services:
       - EVNODE_LOG_TRACE=true
     networks:
       - evstack_shared
+
+  contract-deployer:
+    container_name: contract-deployer
+    image: ghcr.io/foundry-rs/foundry:latest
+    depends_on:
+      single-sequencer:
+        condition: service_started
+    volumes:
+      - ../../contracts:/contracts:ro
+      - ../../scripts/auto_deploy_contracts.sh:/usr/local/bin/auto_deploy_contracts.sh:ro
+      - ../../frontend:/volumes/contracts
+    environment:
+      - RPC_URL=http://ev-reth-sequencer:8545
+      - CHAIN_ID=${CHAIN_ID}
+      - DEPLOYER_PRIVATE_KEY=${DEPLOYER_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}
+    entrypoint: ["/bin/sh"]
+    command:
+      - -c
+      - |
+        apk add --no-cache bash curl jq
+        bash /usr/local/bin/auto_deploy_contracts.sh
+    networks:
+      - evstack_shared
+    restart: "no"
 
 volumes:
   jwttoken-sequencer:

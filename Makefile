@@ -31,7 +31,9 @@ help:
 # Iniciar servicios core en orden con health checks
 start:
 	@echo "$(GREEN)🚀 Iniciando servicios core...$(RESET)"
-	@echo "$(YELLOW)Step 1/2: Iniciando Celestia DA...$(RESET)"
+	@echo "$(YELLOW)Step 0/3: Actualizando DA Start Height...$(RESET)"
+	@bash scripts/update_da_height.sh || echo "$(YELLOW)⚠️  DA height update failed, continuing...$(RESET)"
+	@echo "$(YELLOW)Step 1/3: Iniciando Celestia DA...$(RESET)"
 	@cd stacks/da-celestia && docker compose up -d
 	@echo "$(YELLOW)⏳ Esperando a que Celestia DA esté listo...$(RESET)"
 	@timeout=300; elapsed=0; \
@@ -45,7 +47,7 @@ start:
 		echo "$(YELLOW)  Esperando... ($$elapsed/$$timeout s)$(RESET)"; \
 	done
 	@echo "$(GREEN)✅ Celestia DA está listo$(RESET)"
-	@echo "$(YELLOW)Step 2/2: Iniciando Sequencer...$(RESET)"
+	@echo "$(YELLOW)Step 2/3: Iniciando Sequencer...$(RESET)"
 	@cd stacks/single-sequencer && docker compose up -d
 	@echo "$(YELLOW)⏳ Esperando a que el Sequencer esté listo...$(RESET)"
 	@timeout=120; elapsed=0; \
@@ -61,10 +63,15 @@ start:
 		echo "$(YELLOW)  Esperando... ($$elapsed/$$timeout s)$(RESET)"; \
 	done
 	@echo "$(GREEN)✅ Sequencer está listo$(RESET)"
+	@echo "$(YELLOW)Step 3/3: Desplegando contratos...$(RESET)"
+	@sleep 5
 	@echo "$(GREEN)✅ Servicios core iniciados$(RESET)"
 	@echo "$(YELLOW)Endpoints:$(RESET)"
 	@echo "• Celestia DA: http://localhost:26658"
 	@echo "• Sequencer:   http://localhost:8545"
+	@echo "$(YELLOW)ℹ️  Los contratos se desplegarán automáticamente en segundo plano$(RESET)"
+	@echo "$(YELLOW)ℹ️  Verifica el estado con: docker logs contract-deployer$(RESET)"
+
 
 # Detener servicios core en orden inverso
 stop:

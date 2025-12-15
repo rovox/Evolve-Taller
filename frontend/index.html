@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,14 +11,14 @@
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 20px;
         }
-        
+
         .container {
             max-width: 1200px;
             margin: 0 auto;
@@ -26,23 +27,23 @@
             padding: 30px;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
         }
-        
+
         .header {
             text-align: center;
             margin-bottom: 40px;
         }
-        
+
         .header h1 {
             color: #2c3e50;
             font-size: 2.5em;
             margin-bottom: 10px;
         }
-        
+
         .header p {
             color: #7f8c8d;
             font-size: 1.1em;
         }
-        
+
         .connection-status {
             padding: 15px;
             border-radius: 10px;
@@ -50,25 +51,25 @@
             text-align: center;
             font-weight: 500;
         }
-        
+
         .connected {
             background: #d4edda;
             color: #155724;
             border: 1px solid #c3e6cb;
         }
-        
+
         .disconnected {
             background: #f8d7da;
             color: #721c24;
             border: 1px solid #f5c6cb;
         }
-        
+
         .tabs {
             display: flex;
             margin-bottom: 30px;
             border-bottom: 2px solid #ecf0f1;
         }
-        
+
         .tab {
             flex: 1;
             padding: 15px;
@@ -80,32 +81,33 @@
             color: #7f8c8d;
             transition: all 0.3s ease;
         }
-        
+
         .tab.active {
             color: #3498db;
             border-bottom: 3px solid #3498db;
         }
-        
+
         .tab-content {
             display: none;
         }
-        
+
         .tab-content.active {
             display: block;
         }
-        
+
         .form-group {
             margin-bottom: 20px;
         }
-        
+
         .form-group label {
             display: block;
             margin-bottom: 8px;
             color: #2c3e50;
             font-weight: 500;
         }
-        
-        .form-group input, .form-group select {
+
+        .form-group input,
+        .form-group select {
             width: 100%;
             padding: 12px;
             border: 2px solid #ecf0f1;
@@ -113,12 +115,13 @@
             font-size: 1em;
             transition: border-color 0.3s ease;
         }
-        
-        .form-group input:focus, .form-group select:focus {
+
+        .form-group input:focus,
+        .form-group select:focus {
             outline: none;
             border-color: #3498db;
         }
-        
+
         .btn {
             background: linear-gradient(45deg, #3498db, #2980b9);
             color: white;
@@ -130,21 +133,21 @@
             transition: transform 0.2s ease;
             margin-right: 10px;
         }
-        
+
         .btn:hover {
             transform: translateY(-2px);
         }
-        
+
         .btn:disabled {
             background: #bdc3c7;
             cursor: not-allowed;
             transform: none;
         }
-        
+
         .btn-secondary {
             background: linear-gradient(45deg, #95a5a6, #7f8c8d);
         }
-        
+
         .card {
             background: #f8f9fa;
             border-radius: 10px;
@@ -152,37 +155,37 @@
             margin-bottom: 20px;
             border-left: 4px solid #3498db;
         }
-        
+
         .card h3 {
             color: #2c3e50;
             margin-bottom: 15px;
         }
-        
+
         .info-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 15px;
             margin-bottom: 20px;
         }
-        
+
         .info-item {
             background: white;
             padding: 15px;
             border-radius: 8px;
             border: 1px solid #ecf0f1;
         }
-        
+
         .info-item strong {
             color: #2c3e50;
         }
-        
+
         .members-list {
             background: white;
             border-radius: 8px;
             padding: 15px;
             margin-top: 15px;
         }
-        
+
         .member-item {
             display: flex;
             justify-content: space-between;
@@ -190,33 +193,33 @@
             padding: 10px 0;
             border-bottom: 1px solid #ecf0f1;
         }
-        
+
         .member-item:last-child {
             border-bottom: none;
         }
-        
+
         .status-badge {
             padding: 4px 8px;
             border-radius: 4px;
             font-size: 0.8em;
             font-weight: 500;
         }
-        
+
         .status-paid {
             background: #d4edda;
             color: #155724;
         }
-        
+
         .status-pending {
             background: #fff3cd;
             color: #856404;
         }
-        
+
         .status-winner {
             background: #d1ecf1;
             color: #0c5460;
         }
-        
+
         .loading {
             display: inline-block;
             width: 20px;
@@ -226,12 +229,17 @@
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
-        
+
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
-        
+
         .error {
             background: #f8d7da;
             color: #721c24;
@@ -240,7 +248,7 @@
             margin: 15px 0;
             border: 1px solid #f5c6cb;
         }
-        
+
         .success {
             background: #d4edda;
             color: #155724;
@@ -249,29 +257,193 @@
             margin: 15px 0;
             border: 1px solid #c3e6cb;
         }
+
+        .test-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .test-stat {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            border: 2px solid #ecf0f1;
+        }
+
+        .test-stat .number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #3498db;
+        }
+
+        .test-stat .label {
+            color: #7f8c8d;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        .deployment-info {
+            background: #e8f4f8;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #3498db;
+        }
+
+        .deployment-info h4 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+
+        .tx-detail {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #d1e7f0;
+        }
+
+        .tx-detail:last-child {
+            border-bottom: none;
+        }
+
+        .tx-detail .label {
+            color: #7f8c8d;
+            font-weight: 500;
+        }
+
+        .tx-detail .value {
+            color: #2c3e50;
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+
+        .tx-link {
+            color: #3498db;
+            text-decoration: none;
+        }
+
+        .tx-link:hover {
+            text-decoration: underline;
+        }
+
+        .celestia-wallet {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+
+        .celestia-wallet h4 {
+            margin-bottom: 15px;
+        }
+
+        .balance-display {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .alert-box {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-weight: 500;
+        }
+
+        .alert-warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .alert-critical {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .da-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .da-stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #ecf0f1;
+        }
+
+        .da-stat-card .stat-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #3498db;
+            margin: 10px 0;
+        }
+
+        .da-stat-card .stat-label {
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
     </style>
 </head>
+
 <body>
     <div class="container">
         <div class="header">
             <h1>🏦 ROSCA Demo</h1>
             <p>Rotating Savings and Credit Association - Pasanaku Digital</p>
         </div>
-        
+
         <div id="connectionStatus" class="connection-status disconnected">
             <span id="statusText">No wallet connected</span>
             <button id="connectBtn" class="btn" style="margin-left: 15px;">Connect Wallet</button>
-            <button id="disconnectBtn" class="btn btn-secondary" style="margin-left: 10px; display: none;">Disconnect</button>
-            <div id="contractBalance" style="margin-top:10px; font-size:0.95em; color:#2c3e50;">Contract balance: <span id="balanceValue">-</span></div>
+            <button id="disconnectBtn" class="btn btn-secondary"
+                style="margin-left: 10px; display: none;">Disconnect</button>
+            <div id="contractBalance" style="margin-top:10px; font-size:0.95em; color:#2c3e50;">Contract balance: <span
+                    id="balanceValue">-</span></div>
         </div>
-        
+
         <div class="tabs">
-            <button class="tab active" data-tab="create">Create Group</button>
+            <button class="tab active" data-tab="tests">Integration Tests</button>
+            <button class="tab" data-tab="celestia">Celestia Monitor</button>
+            <button class="tab" data-tab="create">Create Group</button>
             <button class="tab" data-tab="join">Join Group</button>
             <button class="tab" data-tab="contribute">Contribute</button>
             <button class="tab" data-tab="view">View Groups</button>
         </div>
-        
+
+        <!-- Integration Tests Tab -->
+        <div id="tests" class="tab-content active">
+            <div class="card">
+                <h3>🧪 ROSCA Integration Tests</h3>
+                <button id="runTestsBtn" class="btn">Run Integration Tests</button>
+                <button id="refreshTestsBtn" class="btn btn-secondary">Refresh Results</button>
+                <div id="testResults"></div>
+            </div>
+        </div>
+
+        <!-- Celestia Monitor Tab -->
+        <div id="celestia" class="tab-content">
+            <div class="card">
+                <h3>🌌 Celestia DA Layer Monitor</h3>
+                <button id="refreshCelestiaBtn" class="btn btn-secondary">Refresh Data</button>
+                <div id="celestiaMonitor"></div>
+            </div>
+        </div>
+
         <!-- Create Group Tab -->
         <div id="create" class="tab-content active">
             <div class="card">
@@ -293,7 +465,7 @@
                 </form>
             </div>
         </div>
-        
+
         <!-- Join Group Tab -->
         <div id="join" class="tab-content">
             <div class="card">
@@ -305,7 +477,7 @@
                     </div>
                     <button type="submit" class="btn">Join Group</button>
                 </form>
-                
+
                 <div id="groupPreview" style="display: none;">
                     <h4>Group Preview</h4>
                     <div class="info-grid">
@@ -325,7 +497,7 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- Contribute Tab -->
         <div id="contribute" class="tab-content">
             <div class="card">
@@ -339,7 +511,7 @@
                 </form>
             </div>
         </div>
-        
+
         <!-- View Groups Tab -->
         <div id="view" class="tab-content">
             <div class="card">
@@ -348,7 +520,7 @@
                 <div id="groupsList"></div>
             </div>
         </div>
-        
+
         <div id="messages"></div>
     </div>
 
@@ -356,4 +528,5 @@
     <script src="https://cdn.jsdelivr.net/npm/jazzicon@1.1.1/dist/jazzicon.min.js"></script>
     <script src="app.js"></script>
 </body>
+
 </html>

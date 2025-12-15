@@ -9,7 +9,7 @@ Local devnet orchestrated with Docker Compose. Purpose: run Celestia DA + a sing
   - `jwt-init-sequencer` creates `/jwt/jwt.hex` (volume `jwttoken-sequencer`).
   - `passphrase-init-sequencer` creates signer passphrase in volume `passphrase-sequencer` as `/passphrase/passphrase`.
   - `ev-reth-sequencer` exposes HTTP 8545, AuthRPC 8551, Metrics 9001.
-  - `single-sequencer` runs `entrypoint.sequencer.sh`: idempotent init, exports `/volumes/sequencer_export/genesis.json`, auto-resolves `EVM_GENESIS_HASH` from Reth if unset.
+  - `single-sequencer` runs `entrypoint.sequencer.sh`: idempotent init, exports `/volumes/sequencer_export/genesis.json`, auto-resolves `EVM_GENESIS_HASH` from Reth if unset.Actual uses ghcr.io/evstack/ev-node-evm-single:v1.0.0-beta.10
 - Extras: Blockscout (explorer) + Postgres + Redis, and Faucet under `stacks/eth-explorer/` and `stacks/eth-faucet/`.
 
 ## Files + endpoints
@@ -21,7 +21,7 @@ Local devnet orchestrated with Docker Compose. Purpose: run Celestia DA + a sing
 ## Developer workflows (Make targets)
 - Start core with health checks: `make start` (waits on 26658 + `eth_chainId`).
 - Extras: `make start-extras` (requires 8545 up). Inspect: `make status`, `make logs`, `make logs-da`, `make logs-sequencer`, and focused `make logs-reth`, `make logs-evnode`, `make logs-extras`.
-- Stop/Clean: `make stop`, `make stop-with-volumes`, `make clean` (drops named volumes + prunes networks).
+- Stop/Clean: `make stop`(only stop), `make stop-with-volumes`, `make clean` (drops named volumes + prunes networks).
 
 ## Configuration and secrets
 - Celestia `.env`: `DA_CORE_IP` (rpc-mocha.pops.one), `DA_CORE_PORT` (9090), `DA_NETWORK` (mocha), `DA_RPC_PORT`, `DA_TRUSTED_HEIGHT`, `DA_TRUSTED_HASH`.
@@ -44,6 +44,31 @@ Local devnet orchestrated with Docker Compose. Purpose: run Celestia DA + a sing
 ## Gotchas
 - Volumes hold state (Celestia keys, JWT, passphrase). Avoid `make clean`/`stop-with-volumes` unless you intend to reset.
 - If sequencer stalls: check `/root/.evm-single/config`, JWT/passphrase mounts, engine URLs, and that `EVM_GENESIS_HASH` resolved.
+- Manual blob submission example:
+  ```bash
+  curl -X POST http://localhost:26658 \
+    -H "Content-Type: application/json" \
+    -d '{"jsonrpc":"2.0","method":"blob.Submit","params":{"data":"BASE64_ENCODED_BLOB_DATA","namespace_id":"NAMESPACE_ID_IN_HEX"},"id":1}'
+  ```
+  - Deploying smart contracts using wallet with private key works like:
+```bash
+  ~/evolve-deployment $ cd contracts && forge create src/ROSCA.sol:ROSCA --rpc-url http://localhost:8545 --private-key 0xb29f0756244fd1a7a925993dfe81b93716840f57324c8af79f2e3020219c549d --legacy --broadcast 2>&1 | grep -A2 "Deployed to"
+```
+response:
+Deployed to: 0xE6bB2CA6030EF4A80dECBA94994029d6b22305F5
+Transaction hash: 0x7d9dc9aa76332171593e39dfb899d816f7d28284fb4b728e99ad3b1635a69381
+- Manera de manejar consultas en la EVM para obtener el código de un contrato inteligente desplegado:
+```bash
+curl -s http://localhost:8545 -X POST -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"eth_getCode","params":["0xE6bB2CA6030EF4A80dECBA94994029d6b22305F5","latest"],"id":1}' | jq -r '.result' | head -c 50
+```
+response:
+0x6080604052600436106100e0575f3560e01c8063c1cbbca7
+
+- celestia wallet address and balance check If image is running
+```bash
+ ➜ docker exec celestia-node celestia state balance --node.store /home/celestia
+✗  docker exec celestia-node celestia state account-address --node.store /home/celestia
+```
 
 ## Obsolete files
-- `stacks/da-celestia/entrypoint.init-2.sh` and `entrypoint.init-3.sh` were for celestia-appd; current compose only runs the light node.
+- `stacks/da-celestia/entrypoint.init-2.sh` and `entrypoint.init-3.sh` were for celestia-appd; current compose only runs the light node. This files aren´t available in the current orchestration.
