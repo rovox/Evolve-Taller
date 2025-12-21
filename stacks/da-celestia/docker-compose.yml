@@ -1,7 +1,7 @@
 services:
   da:
     container_name: celestia-node
-    image: ghcr.io/celestiaorg/celestia-node:v0.28.2-mocha
+    image: ghcr.io/celestiaorg/celestia-node:v0.28.4-mocha
     env_file: .env
     restart: always
     volumes:
@@ -11,13 +11,18 @@ services:
     environment:
       - VOLUME_EXPORT_PATH=/volumes/da_export
     entrypoint: [/bin/bash, /entrypoint.sh]
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
     ports:
       - $DA_RPC_PORT:26658
       - 2121:2121/tcp
       - 2121:2121/udp
     dns:
       - 1.1.1.1
-      - 1.0.0.1
+      - 8.8.8.8
     healthcheck:
       # Use a lightweight JSON-RPC call to verify node responsiveness (p2p.Info is cheap and always available)
       test: ["CMD-SHELL", "curl -s -X POST -H 'Content-Type: application/json' --data '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"p2p.Info\"}' http://localhost:26658 | grep -q 'result' "]
